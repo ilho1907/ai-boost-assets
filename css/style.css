@@ -282,6 +282,45 @@ section { padding: clamp(4.5rem, 9vw, 8rem) clamp(1.2rem, 5vw, 5rem); position: 
 .interview__play:hover span { border-left-color: var(--white); }
 
 /* =========================================================
+   RETREAT HIGHLIGHT
+   ========================================================= */
+.retreat { background: var(--cream); }
+.retreat__inner {
+  max-width: 1180px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr;
+  gap: clamp(2rem, 6vw, 5rem); align-items: center;
+}
+.retreat__text h2 { font-size: clamp(2rem, 4.5vw, 3.2rem); margin-bottom: .6rem; }
+.retreat__date { color: var(--gold); font-weight: 500; letter-spacing: .04em; margin-bottom: 1.2rem; }
+.retreat__text p { color: var(--ink-soft); }
+.retreat__people { margin: 1.6rem 0; }
+.retreat__label { font-size: .82rem; letter-spacing: .08em; color: var(--ink-soft); display: block; margin-bottom: .7rem; }
+.retreat__chips { display: flex; gap: .7rem; flex-wrap: wrap; }
+.chip {
+  display: inline-flex; align-items: center; gap: .5rem; background: var(--white);
+  border: 1px solid var(--sand); border-radius: 999px; padding: .5em 1.1em; font-size: .92rem; color: var(--brown-d);
+}
+.chip__dot { width: 12px; height: 12px; border-radius: 50%; background: var(--c, var(--taupe)); }
+
+.retreat__cards { position: relative; min-height: 340px; }
+.cert {
+  background: var(--white); border: 1px solid var(--sand); border-radius: var(--r-lg);
+  padding: 2rem; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: .35rem;
+  text-align: center; max-width: 320px;
+  transition: transform .5s var(--ease);
+}
+.cert:hover { transform: translateY(-6px) rotate(-1deg); }
+.cert--offset { position: absolute; top: 60px; left: 90px; background: var(--beige); }
+.cert__seal {
+  width: 48px; height: 48px; margin: 0 auto .6rem; border-radius: 50%;
+  background: linear-gradient(135deg, var(--gold), var(--brown)); color: #fff;
+  display: grid; place-items: center; font-size: 1.3rem;
+}
+.cert__kicker { font-size: .72rem; letter-spacing: .2em; text-transform: uppercase; color: var(--gold); }
+.cert__name { font-family: var(--serif); font-size: 2rem; color: var(--brown-d); }
+.cert__sub { color: var(--ink); }
+.cert__date { font-size: .85rem; color: var(--ink-soft); }
+
+/* =========================================================
    COMMUNITY
    ========================================================= */
 .community {
@@ -380,7 +419,9 @@ input:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px rg
   .nav__burger { display: flex; }
   .nav__actions .btn { display: none; }
   .nav__actions .btn--solid { display: inline-flex; }
-  .vision__grid, .contact__grid { grid-template-columns: 1fr; }
+  .vision__grid, .contact__grid, .retreat__inner { grid-template-columns: 1fr; }
+  .retreat__cards { min-height: 300px; }
+  .cert--offset { left: 50px; top: 50px; }
   .offers__grid, .interview__grid { grid-template-columns: 1fr 1fr; }
   .offer--wide { grid-column: span 2; }
   .footer__inner { grid-template-columns: 1fr 1fr; }
