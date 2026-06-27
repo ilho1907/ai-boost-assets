@@ -1,0 +1,511 @@
+{
+  "name": "Duygu Analizi Pipeline (Emotion Analysis)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "emotion-analysis",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Giriş",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "emotion-analysis-webhook"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.body.type }}",
+                    "rightValue": "audio",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "audio"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.body.type }}",
+                    "rightValue": "video",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "video"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.body.type }}",
+                    "rightValue": "image",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "image"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.body.type }}",
+                    "rightValue": "text",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "text"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "switch-type",
+      "name": "Medya Türü Seç",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.edenai.run/v2/audio/speech_to_text_async/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $credentials.edenAiApiKey }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "providers",
+              "value": "assembly,deepgram,openai"
+            },
+            {
+              "name": "file_url",
+              "value": "={{ $('Webhook Giriş').item.json.body.url }}"
+            },
+            {
+              "name": "language",
+              "value": "={{ $('Webhook Giriş').item.json.body.language || 'de' }}"
+            },
+            {
+              "name": "speakers_number",
+              "value": 2
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "audio-transcribe",
+      "name": "Ses → Metin (STT)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [700, 100]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.edenai.run/v2/text/emotion_detection/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $credentials.edenAiApiKey }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "providers",
+              "value": "ibm,amazon"
+            },
+            {
+              "name": "text",
+              "value": "={{ $json.results?.assembly?.text || $json.results?.deepgram?.text || $json.body?.text }}"
+            },
+            {
+              "name": "language",
+              "value": "de"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "text-emotion",
+      "name": "Metin Duygu Analizi (Eden AI)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [940, 100]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.edenai.run/v2/video/explicit_content_detection/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $credentials.edenAiApiKey }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "providers",
+              "value": "amazon,google"
+            },
+            {
+              "name": "file_url",
+              "value": "={{ $('Webhook Giriş').item.json.body.url }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "video-emotion",
+      "name": "Video Yüz+Ses Analizi (Eden AI)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [700, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.edenai.run/v2/image/face_detection/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $credentials.edenAiApiKey }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "providers",
+              "value": "amazon,google,microsoft"
+            },
+            {
+              "name": "file_url",
+              "value": "={{ $('Webhook Giriş').item.json.body.url }}"
+            },
+            {
+              "name": "attributes",
+              "value": "emotions"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "image-emotion",
+      "name": "Görüntü Yüz Duygu Analizi",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [700, 480]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.edenai.run/v2/text/emotion_detection/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $credentials.edenAiApiKey }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "providers",
+              "value": "ibm,amazon"
+            },
+            {
+              "name": "text",
+              "value": "={{ $('Webhook Giriş').item.json.body.text }}"
+            },
+            {
+              "name": "language",
+              "value": "={{ $('Webhook Giriş').item.json.body.language || 'de' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "direct-text-emotion",
+      "name": "Direkt Metin Duygu Analizi",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [700, 660]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Tüm modalitelerden gelen sonuçları normalize et\nconst items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  const raw = item.json;\n  const sourceType = item.json._sourceType || 'unknown';\n  \n  // Duygu skorlarını normalize et (0-1 arası)\n  let emotions = {};\n  let dominantEmotion = '';\n  let confidence = 0;\n  \n  // Eden AI Metin Duygu formatı\n  if (raw.ibm || raw.amazon) {\n    const provider = raw.ibm || raw.amazon;\n    if (provider.items) {\n      provider.items.forEach(item => {\n        if (item.emotion) {\n          emotions[item.emotion] = (emotions[item.emotion] || 0) + item.confidence;\n        }\n      });\n    }\n  }\n  \n  // Eden AI Yüz Duygu formatı\n  if (raw.amazon?.faces || raw.google?.faces) {\n    const faces = raw.amazon?.faces || raw.google?.faces || [];\n    faces.forEach(face => {\n      if (face.emotions) {\n        face.emotions.forEach(e => {\n          emotions[e.emotion?.toLowerCase()] = Math.max(\n            emotions[e.emotion?.toLowerCase()] || 0,\n            e.confidence || 0\n          );\n        });\n      }\n    });\n  }\n  \n  // En baskın duyguyu bul\n  if (Object.keys(emotions).length > 0) {\n    dominantEmotion = Object.entries(emotions)\n      .sort((a, b) => b[1] - a[1])[0][0];\n    confidence = emotions[dominantEmotion];\n  }\n  \n  // Almanca duygu etiketleri\n  const emotionLabelsDE = {\n    'happy': 'Freude',\n    'joy': 'Freude',\n    'sad': 'Trauer',\n    'sadness': 'Trauer',\n    'angry': 'Wut',\n    'anger': 'Wut',\n    'fear': 'Angst',\n    'disgust': 'Ekel',\n    'surprise': 'Überraschung',\n    'neutral': 'Neutral',\n    'contempt': 'Verachtung',\n    'calm': 'Ruhe'\n  };\n  \n  results.push({\n    timestamp: new Date().toISOString(),\n    sourceType,\n    dominantEmotion,\n    dominantEmotionDE: emotionLabelsDE[dominantEmotion] || dominantEmotion,\n    confidence: Math.round(confidence * 100) / 100,\n    allEmotions: emotions,\n    rawProviderData: raw,\n    alert: confidence > 0.7 && ['angry', 'anger', 'fear', 'sad', 'sadness'].includes(dominantEmotion)\n  });\n}\n\nreturn results;"
+      },
+      "id": "normalize-results",
+      "name": "Sonuçları Normalize Et",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1180, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.alert }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "true" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-alert",
+      "name": "Yüksek Yoğunluk Uyarısı?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1400, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.edenai.run/v2/text/chat/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $credentials.edenAiApiKey }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"providers\": \"openai\",\n  \"text\": \"Analysiere folgende Emotion und gib eine kurze professionelle Empfehlung auf Deutsch: Erkannte Emotion: {{ $json.dominantEmotionDE }}, Konfidenz: {{ $json.confidence }}, Alle Emotionen: {{ JSON.stringify($json.allEmotions) }}. Max 3 Sätze.\",\n  \"chatbot_global_action\": \"Du bist ein Experte für Emotionsanalyse und psychologisches Wohlbefinden.\",\n  \"previous_history\": [],\n  \"temperature\": 0.3,\n  \"max_tokens\": 200,\n  \"language\": \"de\"\n}",
+        "options": {}
+      },
+      "id": "ai-interpretation",
+      "name": "KI Yorum (Claude/GPT)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1620, 200]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"status\": \"success\",\n  \"emotion\": \"{{ $('Sonuçları Normalize Et').item.json.dominantEmotion }}\",\n  \"emotionDE\": \"{{ $('Sonuçları Normalize Et').item.json.dominantEmotionDE }}\",\n  \"confidence\": {{ $('Sonuçları Normalize Et').item.json.confidence }},\n  \"allEmotions\": {{ JSON.stringify($('Sonuçları Normalize Et').item.json.allEmotions) }},\n  \"alert\": {{ $('Sonuçları Normalize Et').item.json.alert }},\n  \"aiInterpretation\": \"{{ $json.openai?.generated_text || '' }}\",\n  \"timestamp\": \"{{ $('Sonuçları Normalize Et').item.json.timestamp }}\"\n}",
+        "options": {}
+      },
+      "id": "response-success",
+      "name": "Başarılı Yanıt",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1840, 200]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"status\": \"success\",\n  \"emotion\": \"{{ $json.dominantEmotion }}\",\n  \"emotionDE\": \"{{ $json.dominantEmotionDE }}\",\n  \"confidence\": {{ $json.confidence }},\n  \"allEmotions\": {{ JSON.stringify($json.allEmotions) }},\n  \"alert\": false,\n  \"timestamp\": \"{{ $json.timestamp }}\"\n}",
+        "options": {}
+      },
+      "id": "response-normal",
+      "name": "Normal Yanıt",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1620, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Ses + Video için kaynak tipi işaretle\nconst item = $input.item;\nreturn {\n  ...item.json,\n  _sourceType: 'audio'\n};"
+      },
+      "id": "tag-audio",
+      "name": "Ses Etiketi",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [940, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.item;\nreturn {\n  ...item.json,\n  _sourceType: 'video'\n};"
+      },
+      "id": "tag-video",
+      "name": "Video Etiketi",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [940, 480]
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.item;\nreturn {\n  ...item.json,\n  _sourceType: 'image'\n};"
+      },
+      "id": "tag-image",
+      "name": "Görüntü Etiketi",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [940, 660]
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.item;\nreturn {\n  ...item.json,\n  _sourceType: 'text'\n};"
+      },
+      "id": "tag-text",
+      "name": "Metin Etiketi",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [940, 840]
+    }
+  ],
+  "connections": {
+    "Webhook Giriş": {
+      "main": [
+        [{ "node": "Medya Türü Seç", "type": "main", "index": 0 }]
+      ]
+    },
+    "Medya Türü Seç": {
+      "main": [
+        [{ "node": "Ses → Metin (STT)", "type": "main", "index": 0 }],
+        [{ "node": "Video Yüz+Ses Analizi (Eden AI)", "type": "main", "index": 0 }],
+        [{ "node": "Görüntü Yüz Duygu Analizi", "type": "main", "index": 0 }],
+        [{ "node": "Direkt Metin Duygu Analizi", "type": "main", "index": 0 }]
+      ]
+    },
+    "Ses → Metin (STT)": {
+      "main": [
+        [{ "node": "Metin Duygu Analizi (Eden AI)", "type": "main", "index": 0 }]
+      ]
+    },
+    "Metin Duygu Analizi (Eden AI)": {
+      "main": [
+        [{ "node": "Ses Etiketi", "type": "main", "index": 0 }]
+      ]
+    },
+    "Video Yüz+Ses Analizi (Eden AI)": {
+      "main": [
+        [{ "node": "Video Etiketi", "type": "main", "index": 0 }]
+      ]
+    },
+    "Görüntü Yüz Duygu Analizi": {
+      "main": [
+        [{ "node": "Görüntü Etiketi", "type": "main", "index": 0 }]
+      ]
+    },
+    "Direkt Metin Duygu Analizi": {
+      "main": [
+        [{ "node": "Metin Etiketi", "type": "main", "index": 0 }]
+      ]
+    },
+    "Ses Etiketi": {
+      "main": [
+        [{ "node": "Sonuçları Normalize Et", "type": "main", "index": 0 }]
+      ]
+    },
+    "Video Etiketi": {
+      "main": [
+        [{ "node": "Sonuçları Normalize Et", "type": "main", "index": 0 }]
+      ]
+    },
+    "Görüntü Etiketi": {
+      "main": [
+        [{ "node": "Sonuçları Normalize Et", "type": "main", "index": 0 }]
+      ]
+    },
+    "Metin Etiketi": {
+      "main": [
+        [{ "node": "Sonuçları Normalize Et", "type": "main", "index": 0 }]
+      ]
+    },
+    "Sonuçları Normalize Et": {
+      "main": [
+        [{ "node": "Yüksek Yoğunluk Uyarısı?", "type": "main", "index": 0 }]
+      ]
+    },
+    "Yüksek Yoğunluk Uyarısı?": {
+      "main": [
+        [{ "node": "KI Yorum (Claude/GPT)", "type": "main", "index": 0 }],
+        [{ "node": "Normal Yanıt", "type": "main", "index": 0 }]
+      ]
+    },
+    "KI Yorum (Claude/GPT)": {
+      "main": [
+        [{ "node": "Başarılı Yanıt", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+  "staticData": null,
+  "tags": ["emotion-analysis", "duygu-analizi", "eden-ai", "almanca"],
+  "triggerCount": 0,
+  "updatedAt": "2026-06-15T22:00:00.000Z",
+  "versionId": "1"
+}
