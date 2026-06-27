@@ -1,0 +1,476 @@
+{
+  "name": "Duygu Analizi — Erweitert (E-Mail + Müşteri Hizmetleri + Koçluk/İK)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "emotion-analysis",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Giriş",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [200, 400],
+      "webhookId": "emotion-analysis-extended"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.body.type }}",
+                    "rightValue": "audio",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "audio"
+            },
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.body.type }}",
+                    "rightValue": "video",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "video"
+            },
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.body.type }}",
+                    "rightValue": "image",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "image"
+            },
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.body.type }}",
+                    "rightValue": "text",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "text"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "switch-type",
+      "name": "Medya Türü Seç",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [440, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.edenai.run/v2/audio/speech_to_text_async/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "Bearer {{ $credentials.edenAiApiKey }}" }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "providers", "value": "assembly,deepgram" },
+            { "name": "file_url", "value": "={{ $('Webhook Giriş').item.json.body.url }}" },
+            { "name": "language", "value": "={{ $('Webhook Giriş').item.json.body.language || 'de' }}" }
+          ]
+        }
+      },
+      "id": "audio-stt",
+      "name": "Ses → Metin (STT)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.edenai.run/v2/text/emotion_detection/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "Bearer {{ $credentials.edenAiApiKey }}" }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "providers", "value": "ibm,amazon" },
+            { "name": "text", "value": "={{ $json.results?.assembly?.text || $json.results?.deepgram?.text }}" },
+            { "name": "language", "value": "de" }
+          ]
+        }
+      },
+      "id": "audio-emotion",
+      "name": "Ses Duygu (Metin üzerinden)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.edenai.run/v2/image/face_detection/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "Bearer {{ $credentials.edenAiApiKey }}" }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "providers", "value": "amazon,google,microsoft" },
+            { "name": "file_url", "value": "={{ $('Webhook Giriş').item.json.body.url }}" },
+            { "name": "attributes", "value": "emotions" }
+          ]
+        }
+      },
+      "id": "image-emotion",
+      "name": "Görüntü Yüz Duygu",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.edenai.run/v2/video/explicit_content_detection/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "Bearer {{ $credentials.edenAiApiKey }}" }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "providers", "value": "amazon,google" },
+            { "name": "file_url", "value": "={{ $('Webhook Giriş').item.json.body.url }}" }
+          ]
+        }
+      },
+      "id": "video-emotion",
+      "name": "Video Duygu Analizi",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 560]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.edenai.run/v2/text/emotion_detection/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "Bearer {{ $credentials.edenAiApiKey }}" }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "providers", "value": "ibm,amazon" },
+            { "name": "text", "value": "={{ $('Webhook Giriş').item.json.body.text }}" },
+            { "name": "language", "value": "={{ $('Webhook Giriş').item.json.body.language || 'de' }}" }
+          ]
+        }
+      },
+      "id": "text-emotion",
+      "name": "Metin Duygu Analizi",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 720]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const items = $input.all();\nconst results = [];\n\nconst emotionLabelsDE = {\n  'happy': 'Freude', 'joy': 'Freude',\n  'sad': 'Trauer', 'sadness': 'Trauer',\n  'angry': 'Wut', 'anger': 'Wut',\n  'fear': 'Angst', 'disgust': 'Ekel',\n  'surprise': 'Überraschung', 'neutral': 'Neutral',\n  'contempt': 'Verachtung', 'calm': 'Ruhe',\n  'confused': 'Verwirrt', 'excited': 'Aufgeregt'\n};\n\nconst negativeEmotions = ['angry','anger','fear','sad','sadness','disgust','contempt'];\nconst positiveEmotions = ['happy','joy','excited','calm','surprise'];\n\nfor (const item of items) {\n  const raw = item.json;\n  let emotions = {};\n\n  // Metin duygu formatı (IBM/Amazon NLP)\n  const providers = ['ibm','amazon','microsoft','google'];\n  for (const p of providers) {\n    if (raw[p]?.items) {\n      raw[p].items.forEach(e => {\n        if (e.emotion) {\n          emotions[e.emotion.toLowerCase()] = Math.max(\n            emotions[e.emotion.toLowerCase()] || 0,\n            e.confidence || 0\n          );\n        }\n      });\n    }\n    // Yüz duygu formatı\n    if (raw[p]?.faces) {\n      raw[p].faces.forEach(face => {\n        (face.emotions || []).forEach(e => {\n          const key = e.emotion?.toLowerCase();\n          if (key) emotions[key] = Math.max(emotions[key] || 0, e.confidence || 0);\n        });\n      });\n    }\n  }\n\n  let dominantEmotion = 'neutral';\n  let confidence = 0;\n  if (Object.keys(emotions).length > 0) {\n    [dominantEmotion, confidence] = Object.entries(emotions)\n      .sort((a, b) => b[1] - a[1])[0];\n  }\n\n  const isNegative = negativeEmotions.includes(dominantEmotion);\n  const isPositive = positiveEmotions.includes(dominantEmotion);\n  const alert = confidence > 0.65 && isNegative;\n\n  // Senaryo belirleme\n  const scenario = raw._scenario || 'general';\n  \n  results.push({\n    timestamp: new Date().toISOString(),\n    scenario,\n    customerName: raw._customerName || 'Unbekannt',\n    customerId: raw._customerId || '',\n    dominantEmotion,\n    dominantEmotionDE: emotionLabelsDE[dominantEmotion] || dominantEmotion,\n    confidence: Math.round(confidence * 100) / 100,\n    allEmotions: emotions,\n    polarity: isPositive ? 'positiv' : isNegative ? 'negativ' : 'neutral',\n    alert,\n    alertLevel: alert && confidence > 0.85 ? 'KRITISCH' : alert ? 'WARNUNG' : 'OK'\n  });\n}\n\nreturn results;"
+      },
+      "id": "normalize",
+      "name": "Sonuçları Normalize Et",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1140, 460]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.scenario }}",
+                    "rightValue": "customer-service",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "customer"
+            },
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.scenario }}",
+                    "rightValue": "coaching",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "coaching"
+            },
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.scenario }}",
+                    "rightValue": "hr",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "hr"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "scenario-router",
+      "name": "Senaryo Yönlendirici",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [1360, 460]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.alert }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "true" }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "customer-alert-check",
+      "name": "Müşteri Alert?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1580, 300]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Webhook Giriş').item.json.body.agentEmail || 'support@firma.de' }}",
+        "subject": "🚨 [ALERT] Unzufriedener Kunde — {{ $json.dominantEmotionDE }} ({{ Math.round($json.confidence * 100) }}%)",
+        "emailType": "html",
+        "message": "=<html>\n<body style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;\">\n  <div style=\"background: #dc3545; color: white; padding: 20px; border-radius: 8px 8px 0 0;\">\n    <h2 style=\"margin: 0;\">⚠️ Kundendienst-Alert</h2>\n    <p style=\"margin: 5px 0 0;\">Hohe negative Emotionsintensität erkannt</p>\n  </div>\n  <div style=\"background: #f8f9fa; padding: 20px; border: 1px solid #dee2e6;\">\n    <table style=\"width: 100%; border-collapse: collapse;\">\n      <tr>\n        <td style=\"padding: 10px; font-weight: bold;\">Kunde:</td>\n        <td style=\"padding: 10px;\">{{ $json.customerName }}</td>\n      </tr>\n      <tr style=\"background: white;\">\n        <td style=\"padding: 10px; font-weight: bold;\">Erkannte Emotion:</td>\n        <td style=\"padding: 10px;\">\n          <span style=\"background: #dc3545; color: white; padding: 4px 12px; border-radius: 20px; font-weight: bold;\">\n            {{ $json.dominantEmotionDE }}\n          </span>\n        </td>\n      </tr>\n      <tr>\n        <td style=\"padding: 10px; font-weight: bold;\">Konfidenz:</td>\n        <td style=\"padding: 10px;\">{{ Math.round($json.confidence * 100) }}%</td>\n      </tr>\n      <tr style=\"background: white;\">\n        <td style=\"padding: 10px; font-weight: bold;\">Alert-Level:</td>\n        <td style=\"padding: 10px; color: #dc3545; font-weight: bold;\">{{ $json.alertLevel }}</td>\n      </tr>\n      <tr>\n        <td style=\"padding: 10px; font-weight: bold;\">Zeitstempel:</td>\n        <td style=\"padding: 10px;\">{{ new Date($json.timestamp).toLocaleString('de-DE') }}</td>\n      </tr>\n    </table>\n    <div style=\"margin-top: 20px; padding: 15px; background: #fff3cd; border-radius: 6px; border-left: 4px solid #ffc107;\">\n      <strong>Empfehlung:</strong><br>\n      Bitte nehmen Sie sofort Kontakt mit dem Kunden auf. Wechsel zu einem erfahrenen Mitarbeiter empfohlen.\n    </div>\n  </div>\n  <div style=\"background: #343a40; color: #adb5bd; padding: 15px; border-radius: 0 0 8px 8px; font-size: 12px;\">\n    Automatisch generiert vom Emotionsanalyse-System\n  </div>\n</body>\n</html>",
+        "options": {}
+      },
+      "id": "email-customer-alert",
+      "name": "E-Mail: Müşteri Alert (Almanca)",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [1800, 160]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Webhook Giriş').item.json.body.agentEmail || 'support@firma.de' }}",
+        "subject": "✅ Kundengespräch — {{ $json.dominantEmotionDE }} ({{ Math.round($json.confidence * 100) }}%)",
+        "emailType": "html",
+        "message": "=<html>\n<body style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;\">\n  <div style=\"background: #198754; color: white; padding: 20px; border-radius: 8px 8px 0 0;\">\n    <h2 style=\"margin: 0;\">✅ Emotionsanalyse — Normaler Verlauf</h2>\n  </div>\n  <div style=\"padding: 20px; border: 1px solid #dee2e6;\">\n    <p><strong>Kunde:</strong> {{ $json.customerName }}</p>\n    <p><strong>Stimmung:</strong> {{ $json.dominantEmotionDE }} ({{ Math.round($json.confidence * 100) }}%)</p>\n    <p><strong>Polarität:</strong> {{ $json.polarity }}</p>\n    <p><strong>Zeitstempel:</strong> {{ new Date($json.timestamp).toLocaleString('de-DE') }}</p>\n  </div>\n</body>\n</html>",
+        "options": {}
+      },
+      "id": "email-customer-ok",
+      "name": "E-Mail: Müşteri Normal (Almanca)",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [1800, 320]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.edenai.run/v2/text/chat/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "Bearer {{ $credentials.edenAiApiKey }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"providers\": \"openai\",\n  \"text\": \"Erstelle auf Deutsch eine einfühlsame Coaching-Empfehlung für folgende Emotionslage: {{ $json.dominantEmotionDE }} mit {{ Math.round($json.confidence * 100) }}% Konfidenz. Gib 3 konkrete, unterstützende Handlungsempfehlungen als Bullet Points.\",\n  \"chatbot_global_action\": \"Du bist ein erfahrener, empathischer Life-Coach. Antworte auf Deutsch, warm und professionell.\",\n  \"previous_history\": [],\n  \"temperature\": 0.5,\n  \"max_tokens\": 300,\n  \"language\": \"de\"\n}"
+      },
+      "id": "coaching-recommendation",
+      "name": "Koçluk Tavsiyesi Üret (KI)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1580, 520]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Webhook Giriş').item.json.body.coachEmail || 'coach@firma.de' }}",
+        "subject": "🧠 Coaching-Session: {{ $json.customerName }} — {{ $('Sonuçları Normalize Et').item.json.dominantEmotionDE }}",
+        "emailType": "html",
+        "message": "=<html>\n<body style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;\">\n  <div style=\"background: #6f42c1; color: white; padding: 20px; border-radius: 8px 8px 0 0;\">\n    <h2 style=\"margin: 0;\">🧠 Coaching-Analyse</h2>\n    <p style=\"margin: 5px 0 0;\">Emotionale Auswertung Ihrer Sitzung</p>\n  </div>\n  <div style=\"padding: 20px; border: 1px solid #dee2e6;\">\n    <h3>Klient: {{ $('Webhook Giriş').item.json.body.customerName }}</h3>\n    <div style=\"display: flex; gap: 15px; margin: 15px 0;\">\n      <div style=\"background: #f3f0ff; padding: 15px; border-radius: 8px; flex: 1; text-align: center;\">\n        <div style=\"font-size: 28px;\">{{ $('Sonuçları Normalize Et').item.json.dominantEmotionDE === 'Freude' ? '😊' : $('Sonuçları Normalize Et').item.json.dominantEmotionDE === 'Trauer' ? '😢' : $('Sonuçları Normalize Et').item.json.dominantEmotionDE === 'Wut' ? '😠' : $('Sonuçları Normalize Et').item.json.dominantEmotionDE === 'Angst' ? '😨' : '😐' }}</div>\n        <div style=\"font-weight: bold; margin-top: 5px;\">{{ $('Sonuçları Normalize Et').item.json.dominantEmotionDE }}</div>\n        <div style=\"color: #666;\">{{ Math.round($('Sonuçları Normalize Et').item.json.confidence * 100) }}% Konfidenz</div>\n      </div>\n    </div>\n    <div style=\"background: #f8f9fa; padding: 15px; border-radius: 6px; margin-top: 15px;\">\n      <h4 style=\"color: #6f42c1; margin-top: 0;\">🤖 KI-Coaching-Empfehlung:</h4>\n      <p>{{ $json.openai?.generated_text || 'Keine Empfehlung verfügbar.' }}</p>\n    </div>\n    <div style=\"margin-top: 15px; padding: 15px; background: #e8f5e9; border-radius: 6px;\">\n      <strong>Alle erkannten Emotionen:</strong><br>\n      {{ Object.entries($('Sonuçları Normalize Et').item.json.allEmotions).map(([k,v]) => k + ': ' + Math.round(v*100) + '%').join(' | ') }}\n    </div>\n  </div>\n  <div style=\"background: #343a40; color: #adb5bd; padding: 15px; border-radius: 0 0 8px 8px; font-size: 12px;\">\n    Sitzung vom {{ new Date($('Sonuçları Normalize Et').item.json.timestamp).toLocaleString('de-DE') }}\n  </div>\n</body>\n</html>",
+        "options": {}
+      },
+      "id": "email-coaching",
+      "name": "E-Mail: Koçluk Raporu (Almanca)",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [1800, 520]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.edenai.run/v2/text/chat/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "Bearer {{ $credentials.edenAiApiKey }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"providers\": \"openai\",\n  \"text\": \"Erstelle einen professionellen HR-Bericht auf Deutsch für folgende Mitarbeiter-Emotionsanalyse: Erkannte Emotion: {{ $json.dominantEmotionDE }}, Konfidenz: {{ Math.round($json.confidence * 100) }}%, Polarität: {{ $json.polarity }}. Bewerte das Wohlbefinden, identifiziere potenzielle Risiken und gib 3 HR-Handlungsempfehlungen.\",\n  \"chatbot_global_action\": \"Du bist ein erfahrener HR-Spezialist. Antworte sachlich, professionell und auf Deutsch.\",\n  \"previous_history\": [],\n  \"temperature\": 0.3,\n  \"max_tokens\": 400,\n  \"language\": \"de\"\n}"
+      },
+      "id": "hr-analysis",
+      "name": "İK Raporu Üret (KI)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1580, 720]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Webhook Giriş').item.json.body.hrEmail || 'hr@firma.de' }}",
+        "subject": "👤 Mitarbeiter-Wohlbefinden: {{ $('Webhook Giriş').item.json.body.customerName }} — {{ $('Sonuçları Normalize Et').item.json.alertLevel }}",
+        "emailType": "html",
+        "message": "=<html>\n<body style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;\">\n  <div style=\"background: {{ $('Sonuçları Normalize Et').item.json.alertLevel === 'KRITISCH' ? '#dc3545' : $('Sonuçları Normalize Et').item.json.alertLevel === 'WARNUNG' ? '#fd7e14' : '#0d6efd' }}; color: white; padding: 20px; border-radius: 8px 8px 0 0;\">\n    <h2 style=\"margin: 0;\">👤 HR-Emotionsanalyse</h2>\n    <p style=\"margin: 5px 0 0;\">Status: {{ $('Sonuçları Normalize Et').item.json.alertLevel }}</p>\n  </div>\n  <div style=\"padding: 20px; border: 1px solid #dee2e6;\">\n    <table style=\"width: 100%; border-collapse: collapse;\">\n      <tr>\n        <td style=\"padding: 10px; font-weight: bold;\">Mitarbeiter:</td>\n        <td style=\"padding: 10px;\">{{ $('Webhook Giriş').item.json.body.customerName }}</td>\n      </tr>\n      <tr style=\"background: #f8f9fa;\">\n        <td style=\"padding: 10px; font-weight: bold;\">Emotionsstatus:</td>\n        <td style=\"padding: 10px; font-weight: bold;\">{{ $('Sonuçları Normalize Et').item.json.dominantEmotionDE }} ({{ Math.round($('Sonuçları Normalize Et').item.json.confidence * 100) }}%)</td>\n      </tr>\n      <tr>\n        <td style=\"padding: 10px; font-weight: bold;\">Polarität:</td>\n        <td style=\"padding: 10px;\">{{ $('Sonuçları Normalize Et').item.json.polarity }}</td>\n      </tr>\n    </table>\n    <div style=\"background: #f8f9fa; padding: 15px; border-radius: 6px; margin-top: 20px;\">\n      <h4 style=\"margin-top: 0; color: #0d6efd;\">📋 HR-Bericht & Empfehlungen:</h4>\n      <p>{{ $json.openai?.generated_text || 'Keine Analyse verfügbar.' }}</p>\n    </div>\n    {{ $('Sonuçları Normalize Et').item.json.alert ? '<div style=\"margin-top: 15px; padding: 15px; background: #fff3cd; border-radius: 6px; border-left: 4px solid #ffc107;\"><strong>⚠️ Handlungsbedarf:</strong> Dieses Ergebnis erfordert möglicherweise ein vertrauliches Gespräch mit dem Mitarbeiter.</div>' : '' }}\n  </div>\n  <div style=\"background: #343a40; color: #adb5bd; padding: 15px; border-radius: 0 0 8px 8px; font-size: 12px;\">\n    Vertraulich — Nur für HR-Abteilung | {{ new Date($('Sonuçları Normalize Et').item.json.timestamp).toLocaleString('de-DE') }}\n  </div>\n</body>\n</html>",
+        "options": {}
+      },
+      "id": "email-hr",
+      "name": "E-Mail: İK Raporu (Almanca)",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [1800, 720]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"status\": \"success\",\n  \"scenario\": \"{{ $('Sonuçları Normalize Et').item.json.scenario }}\",\n  \"emotion\": \"{{ $('Sonuçları Normalize Et').item.json.dominantEmotion }}\",\n  \"emotionDE\": \"{{ $('Sonuçları Normalize Et').item.json.dominantEmotionDE }}\",\n  \"confidence\": {{ $('Sonuçları Normalize Et').item.json.confidence }},\n  \"polarity\": \"{{ $('Sonuçları Normalize Et').item.json.polarity }}\",\n  \"alertLevel\": \"{{ $('Sonuçları Normalize Et').item.json.alertLevel }}\",\n  \"emailSent\": true,\n  \"timestamp\": \"{{ $('Sonuçları Normalize Et').item.json.timestamp }}\"\n}",
+        "options": {}
+      },
+      "id": "final-response",
+      "name": "Final Yanıt",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [2020, 460]
+    }
+  ],
+  "connections": {
+    "Webhook Giriş": {
+      "main": [[{ "node": "Medya Türü Seç", "type": "main", "index": 0 }]]
+    },
+    "Medya Türü Seç": {
+      "main": [
+        [{ "node": "Ses → Metin (STT)", "type": "main", "index": 0 }],
+        [{ "node": "Video Duygu Analizi", "type": "main", "index": 0 }],
+        [{ "node": "Görüntü Yüz Duygu", "type": "main", "index": 0 }],
+        [{ "node": "Metin Duygu Analizi", "type": "main", "index": 0 }]
+      ]
+    },
+    "Ses → Metin (STT)": {
+      "main": [[{ "node": "Ses Duygu (Metin üzerinden)", "type": "main", "index": 0 }]]
+    },
+    "Ses Duygu (Metin üzerinden)": {
+      "main": [[{ "node": "Sonuçları Normalize Et", "type": "main", "index": 0 }]]
+    },
+    "Video Duygu Analizi": {
+      "main": [[{ "node": "Sonuçları Normalize Et", "type": "main", "index": 0 }]]
+    },
+    "Görüntü Yüz Duygu": {
+      "main": [[{ "node": "Sonuçları Normalize Et", "type": "main", "index": 0 }]]
+    },
+    "Metin Duygu Analizi": {
+      "main": [[{ "node": "Sonuçları Normalize Et", "type": "main", "index": 0 }]]
+    },
+    "Sonuçları Normalize Et": {
+      "main": [[{ "node": "Senaryo Yönlendirici", "type": "main", "index": 0 }]]
+    },
+    "Senaryo Yönlendirici": {
+      "main": [
+        [{ "node": "Müşteri Alert?", "type": "main", "index": 0 }],
+        [{ "node": "Koçluk Tavsiyesi Üret (KI)", "type": "main", "index": 0 }],
+        [{ "node": "İK Raporu Üret (KI)", "type": "main", "index": 0 }]
+      ]
+    },
+    "Müşteri Alert?": {
+      "main": [
+        [{ "node": "E-Mail: Müşteri Alert (Almanca)", "type": "main", "index": 0 }],
+        [{ "node": "E-Mail: Müşteri Normal (Almanca)", "type": "main", "index": 0 }]
+      ]
+    },
+    "Koçluk Tavsiyesi Üret (KI)": {
+      "main": [[{ "node": "E-Mail: Koçluk Raporu (Almanca)", "type": "main", "index": 0 }]]
+    },
+    "İK Raporu Üret (KI)": {
+      "main": [[{ "node": "E-Mail: İK Raporu (Almanca)", "type": "main", "index": 0 }]]
+    },
+    "E-Mail: Müşteri Alert (Almanca)": {
+      "main": [[{ "node": "Final Yanıt", "type": "main", "index": 0 }]]
+    },
+    "E-Mail: Müşteri Normal (Almanca)": {
+      "main": [[{ "node": "Final Yanıt", "type": "main", "index": 0 }]]
+    },
+    "E-Mail: Koçluk Raporu (Almanca)": {
+      "main": [[{ "node": "Final Yanıt", "type": "main", "index": 0 }]]
+    },
+    "E-Mail: İK Raporu (Almanca)": {
+      "main": [[{ "node": "Final Yanıt", "type": "main", "index": 0 }]]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true
+  },
+  "tags": ["emotion-analysis", "email", "customer-service", "coaching", "hr", "almanca"],
+  "versionId": "2"
+}
