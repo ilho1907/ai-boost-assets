@@ -1,0 +1,127 @@
+{
+  "name": "Haftalık Duygu Analizi Özet Raporu (Wöchentlicher Bericht)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 * * 1"
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Her Pazartesi 08:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [200, 400]
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "getAll",
+        "databaseId": {
+          "__rl": true,
+          "value": "={{ $credentials.notionDatabaseId }}",
+          "mode": "id"
+        },
+        "returnAll": true,
+        "filters": {
+          "conditions": [
+            {
+              "key": "Zeitstempel",
+              "condition": "date",
+              "date": {
+                "filterType": "pastWeek"
+              }
+            }
+          ]
+        },
+        "options": { "downloadFiles": false }
+      },
+      "id": "notion-fetch-week",
+      "name": "Notion: Geçen Hafta Verisi",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [420, 400],
+      "credentials": { "notionApi": { "id": "notion-credential", "name": "Notion API" } }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const pages = $input.all();\n\nif (pages.length === 0) {\n  return [{ total: 0, message: 'Keine Daten in dieser Woche.' }];\n}\n\n// Duygu dağılımı say\nconst emotionCount = {};\nconst scenarioCount = { 'customer-service': 0, 'coaching': 0, 'hr': 0, 'general': 0 };\nconst alertCount = { 'OK': 0, 'WARNUNG': 0, 'KRITISCH': 0 };\nconst polarityCount = { 'positiv': 0, 'negativ': 0, 'neutral': 0 };\n\nfor (const page of pages) {\n  const props = page.json.properties || {};\n  const emotion = props['Emotion']?.select?.name || 'Unbekannt';\n  const scenario = props['Szenario']?.select?.name || 'general';\n  const alertLevel = props['Alert-Level']?.select?.name || 'OK';\n  const polarity = props['Polarität']?.select?.name || 'neutral';\n\n  emotionCount[emotion] = (emotionCount[emotion] || 0) + 1;\n  scenarioCount[scenario] = (scenarioCount[scenario] || 0) + 1;\n  alertCount[alertLevel] = (alertCount[alertLevel] || 0) + 1;\n  polarityCount[polarity] = (polarityCount[polarity] || 0) + 1;\n}\n\nconst total = pages.length;\nconst topEmotion = Object.entries(emotionCount).sort((a,b)=>b[1]-a[1])[0]?.[0] || 'N/A';\nconst alertRate = Math.round(((alertCount['WARNUNG']||0) + (alertCount['KRITISCH']||0)) / total * 100);\nconst positiveRate = Math.round((polarityCount['positiv']||0) / total * 100);\n\n// Duygu listesi sıralı\nconst emotionList = Object.entries(emotionCount)\n  .sort((a,b)=>b[1]-a[1])\n  .map(([e,c]) => `${e}: ${c}x (${Math.round(c/total*100)}%)`)\n  .join('\\n');\n\n// Haftanın başı ve sonu\nconst now = new Date();\nconst weekStart = new Date(now);\nweekStart.setDate(now.getDate() - 7);\n\nreturn [{\n  total,\n  topEmotion,\n  alertRate,\n  positiveRate,\n  emotionCount,\n  emotionList,\n  scenarioCount,\n  alertCount,\n  polarityCount,\n  weekStart: weekStart.toLocaleDateString('de-DE'),\n  weekEnd: now.toLocaleDateString('de-DE'),\n  trend: positiveRate >= 60 ? '📈 Positiv' : positiveRate >= 40 ? '➡️ Neutral' : '📉 Negativ'\n}];"
+      },
+      "id": "weekly-stats",
+      "name": "Haftalık İstatistik Hesapla",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [640, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.edenai.run/v2/text/chat/",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "Authorization", "value": "Bearer {{ $credentials.edenAiApiKey }}" }] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"providers\":\"openai\",\"text\":\"Erstelle eine professionelle wöchentliche Zusammenfassung auf Deutsch basierend auf diesen Emotionsanalysedaten:\\n- Gesamtanalysen: {{ $json.total }}\\n- Häufigste Emotion: {{ $json.topEmotion }}\\n- Alert-Rate: {{ $json.alertRate }}%\\n- Positive Stimmung: {{ $json.positiveRate }}%\\n- Trend: {{ $json.trend }}\\n- Szenario-Verteilung: Kundendienst={{ $json.scenarioCount['customer-service'] }}, Coaching={{ $json.scenarioCount['coaching'] }}, HR={{ $json.scenarioCount['hr'] }}\\n\\nGib 3 Erkenntnisse und 2 konkrete Verbesserungsvorschläge für die nächste Woche. Max 250 Wörter.\",\"chatbot_global_action\":\"Du bist ein Experte für Emotionsanalyse und Business Intelligence. Antworte auf Deutsch.\",\"previous_history\":[],\"temperature\":0.4,\"max_tokens\":400,\"language\":\"de\"}"
+      },
+      "id": "ai-summary",
+      "name": "KI Haftalık Yorum Üret",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [860, 400]
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": { "__rl": true, "value": "#emotion-analytics", "mode": "name" },
+        "text": "=📊 *Wöchentlicher Emotionsanalysebericht*\n{{ $('Haftalık İstatistik Hesapla').item.json.weekStart }} – {{ $('Haftalık İstatistik Hesapla').item.json.weekEnd }}\n\n━━━━━━━━━━━━━━━━━━━━\n📈 *Übersicht*\n• Gesamtanalysen: *{{ $('Haftalık İstatistik Hesapla').item.json.total }}*\n• Stimmungstrend: *{{ $('Haftalık İstatistik Hesapla').item.json.trend }}*\n• Positive Stimmung: *{{ $('Haftalık İstatistik Hesapla').item.json.positiveRate }}%*\n• Alert-Rate: *{{ $('Haftalık İstatistik Hesapla').item.json.alertRate }}%*\n\n😊 *Häufigste Emotion:* {{ $('Haftalık İstatistik Hesapla').item.json.topEmotion }}\n\n🚨 *Alert-Status*\n• OK: {{ $('Haftalık İstatistik Hesapla').item.json.alertCount.OK }}\n• Warnung: {{ $('Haftalık İstatistik Hesapla').item.json.alertCount.WARNUNG }}\n• Kritisch: {{ $('Haftalık İstatistik Hesapla').item.json.alertCount.KRITISCH }}\n\n📧 Detaillierter Bericht per E-Mail versendet.",
+        "otherOptions": { "mrkdwn": true }
+      },
+      "id": "slack-weekly",
+      "name": "Slack: Haftalık Özet",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [1080, 280],
+      "credentials": { "slackApi": { "id": "slack-credential", "name": "Slack API" } }
+    },
+    {
+      "parameters": {
+        "sendTo": "management@firma.de",
+        "subject": "📊 Wöchentlicher Emotionsanalysebericht — {{ $('Haftalık İstatistik Hesapla').item.json.weekStart }} bis {{ $('Haftalık İstatistik Hesapla').item.json.weekEnd }}",
+        "emailType": "html",
+        "message": "=<html><body style=\"font-family:Arial,sans-serif;max-width:680px;margin:0 auto\">\n<div style=\"background:linear-gradient(135deg,#667eea,#764ba2);color:white;padding:30px;border-radius:10px 10px 0 0\">\n  <h1 style=\"margin:0;font-size:24px\">📊 Wöchentlicher Emotionsbericht</h1>\n  <p style=\"margin:8px 0 0;opacity:0.9\">{{ $('Haftalık İstatistik Hesapla').item.json.weekStart }} – {{ $('Haftalık İstatistik Hesapla').item.json.weekEnd }}</p>\n</div>\n\n<div style=\"padding:25px;border:1px solid #e0e0e0\">\n  <!-- KPI Karten -->\n  <div style=\"display:flex;gap:15px;margin-bottom:25px\">\n    <div style=\"flex:1;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:15px;text-align:center\">\n      <div style=\"font-size:28px;font-weight:bold;color:#16a34a\">{{ $('Haftalık İstatistik Hesapla').item.json.total }}</div>\n      <div style=\"color:#666;font-size:12px\">Gesamtanalysen</div>\n    </div>\n    <div style=\"flex:1;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:15px;text-align:center\">\n      <div style=\"font-size:28px;font-weight:bold;color:#2563eb\">{{ $('Haftalık İstatistik Hesapla').item.json.positiveRate }}%</div>\n      <div style=\"color:#666;font-size:12px\">Positive Stimmung</div>\n    </div>\n    <div style=\"flex:1;background:{{ $('Haftalık İstatistik Hesapla').item.json.alertRate > 30 ? '#fff7ed' : '#f0fdf4' }};border:1px solid {{ $('Haftalık İstatistik Hesapla').item.json.alertRate > 30 ? '#fed7aa' : '#bbf7d0' }};border-radius:8px;padding:15px;text-align:center\">\n      <div style=\"font-size:28px;font-weight:bold;color:{{ $('Haftalık İstatistik Hesapla').item.json.alertRate > 30 ? '#ea580c' : '#16a34a' }}\">{{ $('Haftalık İstatistik Hesapla').item.json.alertRate }}%</div>\n      <div style=\"color:#666;font-size:12px\">Alert-Rate</div>\n    </div>\n    <div style=\"flex:1;background:#faf5ff;border:1px solid #e9d5ff;border-radius:8px;padding:15px;text-align:center\">\n      <div style=\"font-size:22px;font-weight:bold;color:#7c3aed\">{{ $('Haftalık İstatistik Hesapla').item.json.trend }}</div>\n      <div style=\"color:#666;font-size:12px\">Wochentrend</div>\n    </div>\n  </div>\n\n  <!-- Emotionsverteilung -->\n  <h3 style=\"color:#334155;border-bottom:2px solid #e2e8f0;padding-bottom:10px\">😊 Emotionsverteilung</h3>\n  <div style=\"background:#f8fafc;padding:15px;border-radius:8px;font-family:monospace;white-space:pre-line;font-size:13px\">{{ $('Haftalık İstatistik Hesapla').item.json.emotionList }}</div>\n\n  <!-- Szenario Verteilung -->\n  <h3 style=\"color:#334155;border-bottom:2px solid #e2e8f0;padding-bottom:10px;margin-top:25px\">🎯 Szenario-Verteilung</h3>\n  <div style=\"display:flex;gap:10px\">\n    <div style=\"flex:1;text-align:center;background:#e0f2fe;padding:10px;border-radius:6px\">\n      <strong>{{ $('Haftalık İstatistik Hesapla').item.json.scenarioCount['customer-service'] || 0 }}</strong><br><small>Kundendienst</small>\n    </div>\n    <div style=\"flex:1;text-align:center;background:#f3e8ff;padding:10px;border-radius:6px\">\n      <strong>{{ $('Haftalık İstatistik Hesapla').item.json.scenarioCount['coaching'] || 0 }}</strong><br><small>Coaching</small>\n    </div>\n    <div style=\"flex:1;text-align:center;background:#dcfce7;padding:10px;border-radius:6px\">\n      <strong>{{ $('Haftalık İstatistik Hesapla').item.json.scenarioCount['hr'] || 0 }}</strong><br><small>HR</small>\n    </div>\n  </div>\n\n  <!-- Alert Status -->\n  <h3 style=\"color:#334155;border-bottom:2px solid #e2e8f0;padding-bottom:10px;margin-top:25px\">🚨 Alert-Status</h3>\n  <div style=\"display:flex;gap:10px\">\n    <div style=\"flex:1;text-align:center;background:#dcfce7;padding:10px;border-radius:6px\">\n      <strong style=\"color:#16a34a\">{{ $('Haftalık İstatistik Hesapla').item.json.alertCount.OK || 0 }}</strong><br><small>OK</small>\n    </div>\n    <div style=\"flex:1;text-align:center;background:#fff7ed;padding:10px;border-radius:6px\">\n      <strong style=\"color:#ea580c\">{{ $('Haftalık İstatistik Hesapla').item.json.alertCount.WARNUNG || 0 }}</strong><br><small>Warnung</small>\n    </div>\n    <div style=\"flex:1;text-align:center;background:#fef2f2;padding:10px;border-radius:6px\">\n      <strong style=\"color:#dc2626\">{{ $('Haftalık İstatistik Hesapla').item.json.alertCount.KRITISCH || 0 }}</strong><br><small>Kritisch</small>\n    </div>\n  </div>\n\n  <!-- KI Yorum -->\n  <h3 style=\"color:#334155;border-bottom:2px solid #e2e8f0;padding-bottom:10px;margin-top:25px\">🤖 KI-Analyse & Empfehlungen</h3>\n  <div style=\"background:#f8f9fa;padding:20px;border-radius:8px;border-left:4px solid #667eea\">\n    {{ $json.openai?.generated_text || 'Keine KI-Analyse verfügbar.' }}\n  </div>\n</div>\n\n<div style=\"background:#1e293b;color:#94a3b8;padding:20px;border-radius:0 0 10px 10px;font-size:12px;text-align:center\">\n  Automatisch generiert | Emotionsanalyse-System | {{ new Date().toLocaleString('de-DE') }}\n</div>\n</body></html>"
+      },
+      "id": "email-weekly",
+      "name": "E-Mail: Haftalık Özet Raporu (Almanca)",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [1080, 520]
+    }
+  ],
+  "connections": {
+    "Her Pazartesi 08:00": {
+      "main": [[{ "node": "Notion: Geçen Hafta Verisi", "type": "main", "index": 0 }]]
+    },
+    "Notion: Geçen Hafta Verisi": {
+      "main": [[{ "node": "Haftalık İstatistik Hesapla", "type": "main", "index": 0 }]]
+    },
+    "Haftalık İstatistik Hesapla": {
+      "main": [[{ "node": "KI Haftalık Yorum Üret", "type": "main", "index": 0 }]]
+    },
+    "KI Haftalık Yorum Üret": {
+      "main": [[
+        { "node": "Slack: Haftalık Özet", "type": "main", "index": 0 },
+        { "node": "E-Mail: Haftalık Özet Raporu (Almanca)", "type": "main", "index": 0 }
+      ]]
+    }
+  },
+  "pinData": {},
+  "settings": { "executionOrder": "v1", "saveManualExecutions": true },
+  "tags": ["emotion-analysis", "weekly-report", "schedule", "notion", "slack", "email", "almanca"],
+  "versionId": "1"
+}
