@@ -1,0 +1,425 @@
+/*
+ * Coach-Studio Design-Sprache: "Sanctuary not Software".
+ * Plum / Rose / Sage – bewusst KEIN Creme/Terracotta/Wellness-Klischee.
+ */
+
+:root {
+  --cs-plum: #4a3350;
+  --cs-plum-deep: #2f1f36;
+  --cs-rose: #c98a94;
+  --cs-rose-soft: #f1dde1;
+  --cs-sage: #7c9a82;
+  --cs-sage-soft: #dfe9e0;
+  --cs-ink: #241a26;
+  --cs-paper: #fbf8fa;
+  --cs-line: #e7dee7;
+
+  --cs-warm: var(--cs-plum);
+  --cs-warm-bg: #eee3ec;
+  --cs-lauwarm: #a5744f;
+  --cs-lauwarm-bg: var(--cs-rose-soft);
+  --cs-kalt: #5c6b64;
+  --cs-kalt-bg: var(--cs-sage-soft);
+
+  --cs-font-display: 'Fraunces', 'Georgia', serif;
+  --cs-font-text: 'Inter', system-ui, sans-serif;
+
+  --cs-radius: 14px;
+  --cs-shadow: 0 4px 20px rgba(47, 31, 54, 0.08);
+}
+
+.cs-root {
+  font-family: var(--cs-font-text);
+  color: var(--cs-ink);
+  background: var(--cs-paper);
+}
+
+.cs-heading {
+  font-family: var(--cs-font-display);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--cs-plum-deep);
+}
+
+.cs-lead-radar {
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.cs-lead-radar__header {
+  margin-bottom: 1.5rem;
+}
+
+.cs-lead-radar__title {
+  font-size: 1.8rem;
+  margin: 0 0 0.25rem;
+}
+
+.cs-lead-radar__subtitle {
+  color: #6b5f6d;
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.cs-today-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  background: linear-gradient(135deg, var(--cs-warm-bg), var(--cs-paper));
+  border: 1px solid var(--cs-line);
+  border-radius: var(--cs-radius);
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.cs-today-bar__title {
+  font-family: var(--cs-font-display);
+  font-size: 1.05rem;
+  margin: 0;
+  color: var(--cs-plum-deep);
+}
+
+.cs-today-bar__items {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.75rem;
+}
+
+.cs-today-bar__item {
+  background: var(--cs-paper);
+  border: 1px solid var(--cs-line);
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  font-size: 0.9rem;
+}
+
+.cs-today-bar__item strong {
+  display: block;
+  font-family: var(--cs-font-display);
+  color: var(--cs-plum-deep);
+  margin-bottom: 0.15rem;
+}
+
+.cs-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.cs-column__title {
+  font-family: var(--cs-font-display);
+  font-size: 1.1rem;
+  margin: 0 0 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.cs-column__count {
+  font-family: var(--cs-font-text);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #6b5f6d;
+}
+
+.cs-column--warm .cs-column__title {
+  color: var(--cs-warm);
+}
+.cs-column--lauwarm .cs-column__title {
+  color: var(--cs-lauwarm);
+}
+.cs-column--kalt .cs-column__title {
+  color: var(--cs-kalt);
+}
+
+.cs-column__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.cs-column__empty {
+  color: #8a7d8c;
+  font-size: 0.85rem;
+  font-style: italic;
+}
+
+.cs-card {
+  background: #fff;
+  border: 1px solid var(--cs-line);
+  border-radius: var(--cs-radius);
+  box-shadow: var(--cs-shadow);
+  padding: 1rem 1.1rem;
+}
+
+.cs-card__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.cs-card__name {
+  font-family: var(--cs-font-display);
+  font-size: 1.05rem;
+  margin: 0;
+  color: var(--cs-plum-deep);
+}
+
+.cs-card__handle {
+  color: #8a7d8c;
+  font-size: 0.85rem;
+  margin: 0.1rem 0 0;
+}
+
+.cs-badge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  border-radius: 999px;
+  padding: 0.2rem 0.6rem;
+  white-space: nowrap;
+}
+
+.cs-badge--warm {
+  background: var(--cs-warm-bg);
+  color: var(--cs-warm);
+}
+.cs-badge--lauwarm {
+  background: var(--cs-lauwarm-bg);
+  color: var(--cs-lauwarm);
+}
+.cs-badge--kalt {
+  background: var(--cs-kalt-bg);
+  color: var(--cs-kalt);
+}
+
+.cs-card__trend {
+  font-size: 0.78rem;
+  margin: 0.4rem 0 0;
+  color: #6b5f6d;
+}
+
+.cs-card__folgt {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 0.15rem 0.55rem;
+  margin: 0.45rem 0 0;
+}
+
+.cs-card__folgt--ja {
+  background: var(--cs-sage-soft);
+  color: #4b5a4f;
+}
+
+.cs-card__folgt--nein {
+  background: var(--cs-rose-soft);
+  color: #8a6a70;
+}
+
+.cs-card__signale {
+  list-style: none;
+  padding: 0;
+  margin: 0.6rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.82rem;
+  color: #55495a;
+}
+
+.cs-card__signale li::before {
+  content: '· ';
+  color: var(--cs-rose);
+}
+
+.cs-card__aktion {
+  background: var(--cs-sage-soft);
+  border-radius: 10px;
+  padding: 0.6rem 0.75rem;
+  margin: 0.6rem 0;
+}
+
+.cs-card__aktion-titel {
+  font-weight: 600;
+  font-size: 0.88rem;
+  color: var(--cs-plum-deep);
+  display: block;
+}
+
+.cs-card__aktion-begruendung {
+  font-size: 0.8rem;
+  color: #4b5a4f;
+  margin: 0.1rem 0 0;
+}
+
+.cs-btn {
+  font-family: var(--cs-font-text);
+  font-weight: 600;
+  font-size: 0.85rem;
+  border: none;
+  border-radius: 999px;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  transition: transform 0.1s ease, opacity 0.1s ease;
+}
+
+.cs-btn:active {
+  transform: scale(0.98);
+}
+
+.cs-btn--primary {
+  background: var(--cs-plum);
+  color: #fff;
+}
+
+.cs-btn--primary:hover {
+  opacity: 0.92;
+}
+
+.cs-btn--ghost {
+  background: transparent;
+  color: var(--cs-plum);
+  border: 1px solid var(--cs-line);
+}
+
+.cs-card__notiz {
+  width: 100%;
+  margin-top: 0.6rem;
+  border: 1px solid var(--cs-line);
+  border-radius: 8px;
+  padding: 0.5rem 0.6rem;
+  font-family: var(--cs-font-text);
+  font-size: 0.82rem;
+  resize: vertical;
+  min-height: 44px;
+}
+
+/* LeadVerknuepfen Modal */
+
+.cs-modal__backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(36, 26, 38, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  z-index: 50;
+}
+
+.cs-modal {
+  background: var(--cs-paper);
+  border-radius: var(--cs-radius);
+  box-shadow: var(--cs-shadow);
+  max-width: 440px;
+  width: 100%;
+  padding: 1.75rem;
+}
+
+.cs-modal__title {
+  font-family: var(--cs-font-display);
+  font-size: 1.25rem;
+  margin: 0 0 0.4rem;
+  color: var(--cs-plum-deep);
+}
+
+.cs-modal__intro {
+  font-size: 0.88rem;
+  color: #55495a;
+  margin: 0 0 1.2rem;
+}
+
+.cs-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 1.1rem;
+}
+
+.cs-field label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--cs-plum-deep);
+}
+
+.cs-field input[type='text'] {
+  border: 1px solid var(--cs-line);
+  border-radius: 8px;
+  padding: 0.55rem 0.7rem;
+  font-size: 0.9rem;
+  font-family: var(--cs-font-text);
+}
+
+.cs-consent {
+  background: var(--cs-sage-soft);
+  border-radius: 10px;
+  padding: 0.9rem 1rem;
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+.cs-consent__text {
+  font-size: 0.82rem;
+  color: #3f4a42;
+  line-height: 1.4;
+}
+
+.cs-consent__text strong {
+  color: var(--cs-plum-deep);
+}
+
+.cs-switch {
+  position: relative;
+  width: 42px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.cs-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.cs-switch__track {
+  position: absolute;
+  inset: 0;
+  background: #c9c0c9;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.cs-switch__track::before {
+  content: '';
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  left: 3px;
+  top: 3px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 0.15s ease;
+}
+
+.cs-switch input:checked + .cs-switch__track {
+  background: var(--cs-sage);
+}
+
+.cs-switch input:checked + .cs-switch__track::before {
+  transform: translateX(18px);
+}
+
+.cs-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  margin-top: 1.4rem;
+}
