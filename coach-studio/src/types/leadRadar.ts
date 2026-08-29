@@ -9,10 +9,15 @@ export interface Lead {
   coach_id: string;
   name: string;
   instagram_handle: string | null;
+  /** Instagram-Scoped ID, entsteht erst mit der ersten Konversation. */
+  instagram_scoped_id: string | null;
   quelle: LeadQuelle;
   status: LeadStatus;
   consent_tracking: boolean;
   consent_at: string | null;
+  /** is_user_follow_business; null = unbekannt. Nur mit Einwilligung befüllt. */
+  folgt_coach: boolean | null;
+  folgt_coach_at: string | null;
   notiz: string | null;
   created_at: string;
   updated_at: string;

@@ -99,6 +99,7 @@ export function LeadRadar() {
         trend: score.trend,
         letzteInteraktionAt: score.letzteInteraktionAt,
         letzterInteraktionsTyp: letzterTyp,
+        folgtCoach: lead.folgt_coach,
         jetzt,
       });
 

@@ -156,6 +156,42 @@ describe('ermittleNaechsteAktion', () => {
     expect(empfehlung.titel).toBe('Archivieren oder letzter Impuls');
   });
 
+  it('knüpft sanft an, statt einen stillen Lead zu archivieren, der noch folgt', () => {
+    const empfehlung = ermittleNaechsteAktion({
+      stufe: 'kalt',
+      trend: 'fallend',
+      letzteInteraktionAt: new Date(JETZT.getTime() - 25 * 24 * 60 * 60 * 1000),
+      letzterInteraktionsTyp: 'like',
+      folgtCoach: true,
+      jetzt: JETZT,
+    });
+    expect(empfehlung.titel).toBe('Sanft anknüpfen');
+  });
+
+  it('archiviert weiterhin, wenn der Follow-Status unbekannt ist', () => {
+    const empfehlung = ermittleNaechsteAktion({
+      stufe: 'kalt',
+      trend: 'fallend',
+      letzteInteraktionAt: new Date(JETZT.getTime() - 25 * 24 * 60 * 60 * 1000),
+      letzterInteraktionsTyp: 'like',
+      folgtCoach: null,
+      jetzt: JETZT,
+    });
+    expect(empfehlung.titel).toBe('Archivieren oder letzter Impuls');
+  });
+
+  it('lässt warme Leads von der Follow-Regel unberührt', () => {
+    const empfehlung = ermittleNaechsteAktion({
+      stufe: 'warm',
+      trend: 'stabil',
+      letzteInteraktionAt: new Date(JETZT.getTime() - 12 * 24 * 60 * 60 * 1000),
+      letzterInteraktionsTyp: 'save',
+      folgtCoach: true,
+      jetzt: JETZT,
+    });
+    expect(empfehlung.titel).toBe('Persönliche Nachricht senden');
+  });
+
   it('fällt bei warmem Lead ohne akute Regel auf "Beziehung pflegen" zurück', () => {
     const empfehlung = ermittleNaechsteAktion({
       stufe: 'warm',

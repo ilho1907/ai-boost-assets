@@ -203,6 +203,25 @@
   color: #6b5f6d;
 }
 
+.cs-card__folgt {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 0.15rem 0.55rem;
+  margin: 0.45rem 0 0;
+}
+
+.cs-card__folgt--ja {
+  background: var(--cs-sage-soft);
+  color: #4b5a4f;
+}
+
+.cs-card__folgt--nein {
+  background: var(--cs-rose-soft);
+  color: #8a6a70;
+}
+
 .cs-card__signale {
   list-style: none;
   padding: 0;

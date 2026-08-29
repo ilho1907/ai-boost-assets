@@ -225,6 +225,14 @@ export interface NaechsteAktionInput {
   letzteInteraktionAt: Date | null;
   /** Typ der jüngsten Interaktion, falls vorhanden – für die "heute reagieren"-Regeln. */
   letzterInteraktionsTyp: InteraktionsTyp | null;
+  /**
+   * Folgt der Lead dem Konto der Coachin? `null` = unbekannt.
+   * Stammt aus `is_user_follow_business` (Messaging User-Profile-API) und ist
+   * bewusst kein Score-Faktor: der Score bleibt rein ereignisbasiert mit
+   * Decay, während der Follow-Status ein Dauerzustand ist. Er verfeinert
+   * daher nur die Empfehlung.
+   */
+  folgtCoach?: boolean | null;
   jetzt: Date;
 }
 
@@ -238,7 +246,14 @@ function tageSeit(datum: Date | null, jetzt: Date): number | null {
  * Prioritätsreihenfolge geprüft; die erste zutreffende Regel gewinnt.
  */
 export function ermittleNaechsteAktion(input: NaechsteAktionInput): Empfehlung {
-  const { stufe, trend, letzteInteraktionAt, letzterInteraktionsTyp, jetzt } = input;
+  const {
+    stufe,
+    trend,
+    letzteInteraktionAt,
+    letzterInteraktionsTyp,
+    folgtCoach = null,
+    jetzt,
+  } = input;
   const tageSeitLetzterInteraktion = tageSeit(letzteInteraktionAt, jetzt);
 
   // 1. Unbeantwortete DM > 24h → höchste Priorität.
@@ -276,7 +291,23 @@ export function ermittleNaechsteAktion(input: NaechsteAktionInput): Empfehlung {
     };
   }
 
-  // 4. Kalt, fallend, lange still → archivieren oder letzter Impuls.
+  // 4. Still geworden, folgt dir aber weiterhin → erreichbar, sanft anknüpfen.
+  //    Steht bewusst VOR der Archivieren-Regel: wer noch folgt, ist nicht kalt
+  //    im Sinne von "weg", sondern nur gerade still.
+  if (
+    stufe !== 'warm' &&
+    folgtCoach === true &&
+    tageSeitLetzterInteraktion !== null &&
+    tageSeitLetzterInteraktion > 10
+  ) {
+    return {
+      titel: 'Sanft anknüpfen',
+      begruendung: 'Seit über 10 Tagen still, folgt dir aber weiterhin – sie ist erreichbar.',
+      prioritaet: 2,
+    };
+  }
+
+  // 5. Kalt, fallend, lange still → archivieren oder letzter Impuls.
   if (
     stufe === 'kalt' &&
     trend === 'fallend' &&

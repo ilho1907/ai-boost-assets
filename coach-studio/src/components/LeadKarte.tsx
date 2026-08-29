@@ -1,4 +1,5 @@
 import { formatiereSignal, type Empfehlung, type ScoreErgebnis } from '../lib/scoring';
+import { folgtStatusLabel } from '../lib/instagramProfil';
 import type { Lead } from '../types/leadRadar';
 
 export interface LeadKarteProps {
@@ -49,6 +50,15 @@ export function LeadKarte({
       <p className="cs-card__trend">
         {TREND_LABEL[score.trend]} · Score {score.score}
       </p>
+
+      {lead.folgt_coach !== null && (
+        <p
+          className={`cs-card__folgt cs-card__folgt--${lead.folgt_coach ? 'ja' : 'nein'}`}
+          title="Aus der Instagram-Konversation, nur mit Einwilligung erfasst."
+        >
+          {folgtStatusLabel(lead.folgt_coach)}
+        </p>
+      )}
 
       {score.topSignale.length > 0 && (
         <ul className="cs-card__signale">

@@ -130,6 +130,51 @@ verfügbar ist, wird das sauber als „nicht verfügbar" behandelt (kein
 `lead_interactions`-Eintrag) — es wird **nicht** versucht, das über
 inoffizielle Wege zu umgehen.
 
+### Follow-Status („Folgt sie dir?")
+
+Eine **Follower-Liste gibt die Graph API grundsätzlich nicht her** — weder für
+fremde noch für das eigene Konto; verfügbar ist nur `followers_count` sowie
+aggregierte Demografie. Es gibt jedoch genau eine offizielle Stelle, an der
+der Follow-Status pro Person auftaucht: die **Messaging User-Profile-API**
+liefert zu einer IGSID unter anderem `is_user_follow_business` und
+`is_business_follow_user`.
+
+Voraussetzung ist eine **bestehende Konversation** — eine IGSID entsteht erst,
+wenn die Person das Konto der Coachin selbst angeschrieben hat. Beliebige
+Profile lassen sich damit nicht abfragen, und genau deshalb passt dieses
+Signal in die Feature-Grenze: es entsteht durch die Interaktion des Leads mit
+der Coachin.
+
+Umsetzung im Code:
+
+- `src/lib/instagramProfil.ts` — reine, testbare Auswertung der API-Antwort
+  (`leseFollowStatus`, `baueFollowStatusUpdate`, `profilAbrufUrl`).
+- Fehlt das Feld in der Antwort, bleibt der Status bewusst `null`
+  („unbekannt") statt auf `false` geraten zu werden.
+- Gespeichert in `leads.folgt_coach` / `leads.folgt_coach_at`, abgesichert
+  durch den CHECK-Constraint `leads_folgt_coach_consent_chk`: **ohne
+  Einwilligung kein Follow-Status**. Beim Widerruf wird der Wert automatisch
+  mitgelöscht (Datenminimierung).
+- Der Status fließt **nicht** in den Score ein — der bleibt rein
+  ereignisbasiert mit Decay, während „folgt" ein Dauerzustand ist. Er
+  verfeinert nur die Empfehlung: ein stiller Lead, der weiterhin folgt, wird
+  „sanft angeknüpft" statt archiviert.
+
+⚠️ Feldnamen und Scopes vor dem Produktivgang gegen die aktuelle
+Meta-Dokumentation prüfen — Meta benennt Scopes regelmäßig um.
+
+### TikTok — bewusst nicht unterstützt
+
+TikTok besitzt zwar einen Follower-Endpunkt
+(`v2/research/user/followers/`), dieser gehört jedoch zur **Research API**,
+die ausschließlich qualifizierten akademischen und gemeinnützigen
+Einrichtungen offensteht und **kommerzielle Nutzung ausdrücklich untersagt**.
+Die kommerziell nutzbare Display API bietet lediglich `user.info.basic` und
+`video.list` — keine Follower-Liste und kein Follow-Status. Eine
+TikTok-Anbindung ist damit für dieses Produkt nicht umsetzbar; Anbieter, die
+solche Daten dennoch verkaufen, sind Scraper und durch die Projekt-Constraints
+ausgeschlossen.
+
 Vor jedem Insert prüft der DB-Trigger `lead_interactions_enforce_consent`
 zusätzlich serverseitig, dass der Lead `consent_tracking = true` hat — das
 Consent-Gating ist damit nicht nur Anwendungslogik, sondern in der Datenbank
