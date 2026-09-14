@@ -30,6 +30,8 @@ export interface LeadInteractionRow {
   lead_id: string;
   typ: InteraktionsTyp;
   gewicht: number;
+  /** eingehend = vom Lead, ausgehend = von der Coachin gesendet. */
+  richtung: 'eingehend' | 'ausgehend';
   occurred_at: string;
   quelle: 'instagram' | 'manuell';
   raw_ref: string | null;

@@ -84,23 +84,32 @@ export function LeadRadar({ session }: { session: Session }) {
   const ausgewertet = useMemo<LeadMitAuswertung[]>(() => {
     const jetzt = new Date();
     return leads.map((lead) => {
-      const interaktionen = (interaktionenProLead.get(lead.id) ?? []).map((row) => ({
-        id: row.id,
-        typ: row.typ,
-        gewicht: row.gewicht,
-        occurredAt: row.occurred_at,
-      }));
+      // Zeilen kommen nach occurred_at absteigend aus der Abfrage.
+      const alle = interaktionenProLead.get(lead.id) ?? [];
+      const eingehend = alle.filter((row) => row.richtung !== 'ausgehend');
+      const ausgehend = alle.filter((row) => row.richtung === 'ausgehend');
 
-      const score = berechneScore(interaktionen, jetzt);
+      // Nur eingehende Signale zählen zum Score — er misst das Interesse des
+      // Leads, nicht die Aktivität der Coachin.
+      const score = berechneScore(
+        eingehend.map((row) => ({
+          id: row.id,
+          typ: row.typ,
+          gewicht: row.gewicht,
+          occurredAt: row.occurred_at,
+        })),
+        jetzt
+      );
 
-      const letzte = (interaktionenProLead.get(lead.id) ?? [])[0];
-      const letzterTyp: InteraktionsTyp | null = letzte?.typ ?? null;
+      const letzterTyp: InteraktionsTyp | null = eingehend[0]?.typ ?? null;
+      const letzteAntwortAt = ausgehend[0] ? new Date(ausgehend[0].occurred_at) : null;
 
       const empfehlung = ermittleNaechsteAktion({
         stufe: score.stufe,
         trend: score.trend,
         letzteInteraktionAt: score.letzteInteraktionAt,
         letzterInteraktionsTyp: letzterTyp,
+        letzteAntwortAt,
         folgtCoach: lead.folgt_coach,
         jetzt,
       });
@@ -123,11 +132,12 @@ export function LeadRadar({ session }: { session: Session }) {
       .from('leads')
       .update({ status: lead.status === 'neu' ? 'kontaktiert' : lead.status })
       .eq('id', lead.id);
+    // Ausgehende Interaktion: beendet den Wartezustand, zählt nicht zum Score.
     await supabase.from('lead_interactions').insert({
       coach_id: coachId,
       lead_id: lead.id,
       typ: 'dm_antwort',
-      gewicht: 0,
+      richtung: 'ausgehend',
       quelle: 'manuell',
     });
     neuLaden();

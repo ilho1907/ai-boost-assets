@@ -122,6 +122,32 @@ describe('ermittleNaechsteAktion', () => {
     expect(empfehlung.prioritaet).toBe(1);
   });
 
+  it('empfiehlt nicht mehr "Antworten", wenn die Coachin bereits geantwortet hat', () => {
+    const empfehlung = ermittleNaechsteAktion({
+      stufe: 'lauwarm',
+      trend: 'stabil',
+      letzteInteraktionAt: new Date(JETZT.getTime() - 2 * 24 * 60 * 60 * 1000),
+      letzterInteraktionsTyp: 'dm_antwort',
+      // Antwort kam nach der Nachricht des Leads.
+      letzteAntwortAt: new Date(JETZT.getTime() - 1 * 24 * 60 * 60 * 1000),
+      jetzt: JETZT,
+    });
+    expect(empfehlung.titel).not.toBe('Antworten');
+  });
+
+  it('empfiehlt weiterhin "Antworten", wenn die letzte Antwort älter ist als die DM', () => {
+    const empfehlung = ermittleNaechsteAktion({
+      stufe: 'lauwarm',
+      trend: 'stabil',
+      letzteInteraktionAt: new Date(JETZT.getTime() - 2 * 24 * 60 * 60 * 1000),
+      letzterInteraktionsTyp: 'dm_antwort',
+      // Die Coachin schrieb vor 5 Tagen, der Lead antwortete danach.
+      letzteAntwortAt: new Date(JETZT.getTime() - 5 * 24 * 60 * 60 * 1000),
+      jetzt: JETZT,
+    });
+    expect(empfehlung.titel).toBe('Antworten');
+  });
+
   it('empfiehlt persönliche Nachricht bei warmem Lead ohne Kontakt seit 5+ Tagen', () => {
     const empfehlung = ermittleNaechsteAktion({
       stufe: 'warm',

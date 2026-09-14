@@ -19,6 +19,12 @@ on conflict do nothing;
 grant select, insert, update, delete on public.leads, public.lead_interactions, public.lead_scores to coach_app;
 grant select on public.lead_export_v to coach_app;
 
+-- Bewusst KEIN Grant auf coach_instagram_konten: dort sollen ausschliesslich
+-- die Rechte greifen, die die Migration der Rolle `authenticated` gibt.
+insert into public.coach_instagram_konten (coach_id, ig_konto_id, access_token)
+values ('11111111-1111-1111-1111-111111111111', '17841400000000000', 'geheim-darf-nie-in-den-browser')
+on conflict do nothing;
+
 -- Ab hier als normale Nutzerin, nicht als Superuser.
 set role coach_app;
 
@@ -166,7 +172,50 @@ begin
 end $$;
 \echo '    OK: Export zeigt nur eigene Daten'
 
-\echo '--- 11. Loeschung (Art. 17) kaskadiert auf Interaktionen ---'
+\echo '--- 11. Richtung: ausgehende Nachricht bekommt immer Gewicht 0 ---'
+insert into public.lead_interactions (coach_id, lead_id, typ, richtung, gewicht)
+values ('11111111-1111-1111-1111-111111111111', 'aaaa0000-0000-0000-0000-000000000001', 'dm_antwort', 'ausgehend', 99);
+
+do $$
+declare g integer;
+begin
+  select gewicht into g from public.lead_interactions
+  where lead_id = 'aaaa0000-0000-0000-0000-000000000001' and richtung = 'ausgehend';
+  if g <> 0 then
+    raise exception 'FEHLGESCHLAGEN: ausgehende Interaktion sollte Gewicht 0 haben, war %', g;
+  end if;
+end $$;
+\echo '    OK: ausgehend zaehlt nicht zum Score'
+
+\echo '--- 12. Deduplizierung: dieselbe IG-Objekt-ID nur einmal ---'
+insert into public.lead_interactions (coach_id, lead_id, typ, raw_ref)
+values ('11111111-1111-1111-1111-111111111111', 'aaaa0000-0000-0000-0000-000000000001', 'kommentar', 'ig-comment-1');
+
+do $$
+begin
+  begin
+    insert into public.lead_interactions (coach_id, lead_id, typ, raw_ref)
+    values ('11111111-1111-1111-1111-111111111111', 'aaaa0000-0000-0000-0000-000000000001', 'kommentar', 'ig-comment-1');
+    raise exception 'FEHLGESCHLAGEN: doppelte Zustellung wurde akzeptiert!';
+  exception when unique_violation then
+    null; -- erwartet: der Unique-Index auf (coach_id, raw_ref) greift
+  end;
+end $$;
+\echo '    OK: wiederholte Webhook-Zustellung hebt den Score nicht doppelt'
+
+\echo '--- 13. Access-Token ist fuer angemeldete Nutzerinnen nicht lesbar ---'
+do $$
+begin
+  begin
+    perform access_token from public.coach_instagram_konten;
+    raise exception 'FEHLGESCHLAGEN: access_token war lesbar!';
+  exception when insufficient_privilege then
+    null; -- erwartet: spaltenweiser REVOKE greift
+  end;
+end $$;
+\echo '    OK: Token bleibt serverseitig'
+
+\echo '--- 14. Loeschung (Art. 17) kaskadiert auf Interaktionen ---'
 insert into public.lead_scores (coach_id, lead_id, score, stufe)
 values ('11111111-1111-1111-1111-111111111111', 'aaaa0000-0000-0000-0000-000000000001', 42, 'lauwarm');
 

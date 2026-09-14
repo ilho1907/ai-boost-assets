@@ -35,3 +35,8 @@ $$;
 grant usage on schema auth to authenticated, coach_app;
 grant select on auth.users to authenticated, coach_app;
 grant usage on schema public to authenticated, coach_app;
+
+-- coach_app erbt die Rechte von `authenticated`. Dadurch testet die Suite die
+-- echten Grants aus den Migrationen (inklusive spaltenweiser Entzuege) statt
+-- eigens im Test vergebener Rechte.
+grant authenticated to coach_app;

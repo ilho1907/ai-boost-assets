@@ -223,8 +223,14 @@ export interface NaechsteAktionInput {
   stufe: Stufe;
   trend: Trend;
   letzteInteraktionAt: Date | null;
-  /** Typ der jüngsten Interaktion, falls vorhanden – für die "heute reagieren"-Regeln. */
+  /** Typ der jüngsten eingehenden Interaktion, falls vorhanden. */
   letzterInteraktionsTyp: InteraktionsTyp | null;
+  /**
+   * Wann die Coachin zuletzt selbst geschrieben hat (ausgehende Interaktion).
+   * Liegt das nach der jüngsten eingehenden Nachricht, wartet niemand mehr
+   * auf eine Antwort. Ohne diesen Wert (`null`) gilt: noch nicht geantwortet.
+   */
+  letzteAntwortAt?: Date | null;
   /**
    * Folgt der Lead dem Konto der Coachin? `null` = unbekannt.
    * Stammt aus `is_user_follow_business` (Messaging User-Profile-API) und ist
@@ -251,14 +257,21 @@ export function ermittleNaechsteAktion(input: NaechsteAktionInput): Empfehlung {
     trend,
     letzteInteraktionAt,
     letzterInteraktionsTyp,
+    letzteAntwortAt = null,
     folgtCoach = null,
     jetzt,
   } = input;
   const tageSeitLetzterInteraktion = tageSeit(letzteInteraktionAt, jetzt);
 
+  /** Wartet die Nachricht des Leads noch auf eine Reaktion der Coachin? */
+  const nochUnbeantwortet =
+    letzteInteraktionAt !== null &&
+    (letzteAntwortAt === null || letzteAntwortAt < letzteInteraktionAt);
+
   // 1. Unbeantwortete DM > 24h → höchste Priorität.
   if (
     letzterInteraktionsTyp === 'dm_antwort' &&
+    nochUnbeantwortet &&
     tageSeitLetzterInteraktion !== null &&
     tageSeitLetzterInteraktion > 1
   ) {
