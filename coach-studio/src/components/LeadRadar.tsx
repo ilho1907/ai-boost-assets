@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import type { Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabaseClient';
 import {
   berechneScore,
@@ -33,7 +34,8 @@ const SPALTEN: { stufe: ScoreErgebnis['stufe']; titel: string }[] = [
  * vorberechneten lead_scores-Tabelle zu lesen, damit die Ansicht auch nach
  * einer eben erst gespeicherten Interaktion sofort aktuell ist.
  */
-export function LeadRadar() {
+export function LeadRadar({ session }: { session: Session }) {
+  const coachId = session.user.id;
   const [leads, setLeads] = useState<Lead[]>([]);
   const [interaktionenProLead, setInteraktionenProLead] = useState<
     Map<string, LeadInteractionRow[]>
@@ -122,7 +124,7 @@ export function LeadRadar() {
       .update({ status: lead.status === 'neu' ? 'kontaktiert' : lead.status })
       .eq('id', lead.id);
     await supabase.from('lead_interactions').insert({
-      coach_id: lead.coach_id,
+      coach_id: coachId,
       lead_id: lead.id,
       typ: 'dm_antwort',
       gewicht: 0,
@@ -148,11 +150,25 @@ export function LeadRadar() {
   return (
     <div className="cs-root cs-lead-radar">
       <header className="cs-lead-radar__header">
-        <h1 className="cs-heading cs-lead-radar__title">Lead-Radar</h1>
-        <p className="cs-lead-radar__subtitle">
-          Wer ist warm, wem schreibst du heute? Basierend auf Interaktionen mit deinem eigenen
-          Instagram-Konto.
-        </p>
+        <div className="cs-lead-radar__kopfzeile">
+          <div>
+            <h1 className="cs-heading cs-lead-radar__title">Lead-Radar</h1>
+            <p className="cs-lead-radar__subtitle">
+              Wer ist warm, wem schreibst du heute? Basierend auf Interaktionen mit deinem eigenen
+              Instagram-Konto.
+            </p>
+          </div>
+          <div className="cs-lead-radar__konto">
+            <span>{session.user.email}</span>
+            <button
+              type="button"
+              className="cs-btn cs-btn--ghost"
+              onClick={() => supabase.auth.signOut()}
+            >
+              Abmelden
+            </button>
+          </div>
+        </div>
       </header>
 
       {ladeFehler && <p role="alert">{ladeFehler}</p>}

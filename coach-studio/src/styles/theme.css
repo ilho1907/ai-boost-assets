@@ -203,6 +203,75 @@
   color: #6b5f6d;
 }
 
+/* Anmeldung / Statusmeldungen */
+
+.cs-zentriert {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+
+.cs-panel {
+  background: #fff;
+  border: 1px solid var(--cs-line);
+  border-radius: var(--cs-radius);
+  box-shadow: var(--cs-shadow);
+  padding: 2rem;
+  max-width: 400px;
+  width: 100%;
+}
+
+.cs-panel__marke {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--cs-rose);
+  margin: 0 0 0.5rem;
+}
+
+.cs-panel__titel {
+  font-family: var(--cs-font-display);
+  font-weight: 500;
+  font-size: 1.4rem;
+  margin: 0 0 0.5rem;
+  color: var(--cs-plum-deep);
+}
+
+.cs-panel__text {
+  font-size: 0.88rem;
+  color: #55495a;
+  line-height: 1.5;
+  margin: 0 0 1.3rem;
+}
+
+.cs-fehler {
+  font-size: 0.82rem;
+  color: #8a4a52;
+  background: var(--cs-rose-soft);
+  border-radius: 8px;
+  padding: 0.55rem 0.7rem;
+  margin: 0 0 1rem;
+}
+
+.cs-lead-radar__kopfzeile {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.cs-lead-radar__konto {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  font-size: 0.8rem;
+  color: #8a7d8c;
+}
+
 .cs-card__folgt {
   display: inline-block;
   font-size: 0.72rem;
