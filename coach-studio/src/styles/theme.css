@@ -256,6 +256,51 @@
   margin: 0 0 1rem;
 }
 
+.cs-fehler__schliessen {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-size: 0.78rem;
+  color: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.cs-leer {
+  text-align: center;
+  background: #fff;
+  border: 1px solid var(--cs-line);
+  border-radius: var(--cs-radius);
+  padding: 3rem 2rem;
+  max-width: 480px;
+  margin: 2rem auto;
+}
+
+.cs-leer__titel {
+  font-size: 1.25rem;
+  margin: 0 0 0.5rem;
+}
+
+.cs-leer__text {
+  font-size: 0.88rem;
+  color: #55495a;
+  line-height: 1.5;
+  margin: 0 0 1.4rem;
+}
+
+.cs-field select,
+.cs-field textarea {
+  border: 1px solid var(--cs-line);
+  border-radius: 8px;
+  padding: 0.55rem 0.7rem;
+  font-size: 0.9rem;
+  font-family: var(--cs-font-text);
+  background: #fff;
+  color: var(--cs-ink);
+  resize: vertical;
+}
+
 .cs-lead-radar__kopfzeile {
   display: flex;
   justify-content: space-between;

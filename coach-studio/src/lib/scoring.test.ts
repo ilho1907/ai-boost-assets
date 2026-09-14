@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_GEWICHTE,
+  RELEVANZ_FENSTER_TAGE,
   berechneScore,
   ermittleNaechsteAktion,
   formatiereSignal,
@@ -94,6 +95,24 @@ describe('berechneScore', () => {
   it('erkennt einen stabilen Trend ohne jüngere Aktivität', () => {
     const ergebnis = berechneScore([], JETZT);
     expect(ergebnis.trend).toBe('stabil');
+  });
+});
+
+describe('RELEVANZ_FENSTER_TAGE', () => {
+  it('schneidet nur ab, was den gerundeten Score nicht mehr bewegen kann', () => {
+    // Stärkstes Signal, exakt am Rand des Fensters: darf auf 0 runden.
+    const amRand = berechneScore(
+      [interaktion('erstgespraech', RELEVANZ_FENSTER_TAGE)],
+      JETZT
+    );
+    expect(amRand.score).toBe(0);
+  });
+
+  it('behält Signale, die knapp innerhalb noch zählen könnten', () => {
+    // Gegenprobe: bei 60 Tagen trägt ein Erstgespräch noch sichtbar bei —
+    // das Fenster darf also nicht beliebig klein gewählt werden.
+    const drin = berechneScore([interaktion('erstgespraech', 60)], JETZT);
+    expect(drin.score).toBeGreaterThan(0);
   });
 });
 

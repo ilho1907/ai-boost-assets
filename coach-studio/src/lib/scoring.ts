@@ -75,6 +75,18 @@ export const DEFAULT_GEWICHTE: Record<InteraktionsTyp, number> = {
 const HALBWERTSZEIT_TAGE = 14;
 const MS_PRO_TAG = 24 * 60 * 60 * 1000;
 
+/**
+ * Zeitfenster, aus dem Interaktionen überhaupt geladen werden müssen.
+ *
+ * Bei 14 Tagen Halbwertszeit ist ein 180 Tage altes Signal auf
+ * 0.5^(180/14) ≈ 0,0001 abgeklungen: selbst ein Erstgespräch (Gewicht 40)
+ * steuert dann weniger als 0,006 Punkte bei und kann den gerundeten Score
+ * nicht mehr verändern. Ältere Zeilen zu laden kostet nur Bandbreite — und
+ * riskiert, dass eine Ergebnisgrenze stattdessen *junge* Signale abschneidet.
+ * `berechneScore` selbst filtert nicht; die Konstante steuert die Abfrage.
+ */
+export const RELEVANZ_FENSTER_TAGE = 180;
+
 const SCHWELLE_LAUWARM = 20;
 const SCHWELLE_WARM = 50;
 

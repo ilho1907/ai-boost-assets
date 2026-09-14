@@ -5,11 +5,14 @@ import {
   berechneScore,
   ermittleNaechsteAktion,
   topAktionen,
+  RELEVANZ_FENSTER_TAGE,
   type Empfehlung,
   type InteraktionsTyp,
   type ScoreErgebnis,
 } from '../lib/scoring';
-import type { Lead, LeadInteractionRow } from '../types/leadRadar';
+import { ladeAlleSeiten, vorTagen } from '../lib/supabaseAbfragen';
+import type { Lead, LeadInteractionRow, LeadQuelle } from '../types/leadRadar';
+import { LeadAnlegen } from './LeadAnlegen';
 import { LeadKarte } from './LeadKarte';
 import { LeadVerknuepfen } from './LeadVerknuepfen';
 
@@ -41,38 +44,56 @@ export function LeadRadar({ session }: { session: Session }) {
     Map<string, LeadInteractionRow[]>
   >(new Map());
   const [ladeFehler, setLadeFehler] = useState<string | null>(null);
+  const [schreibFehler, setSchreibFehler] = useState<string | null>(null);
   const [laedt, setLaedt] = useState(true);
   const [verknuepfenLead, setVerknuepfenLead] = useState<Lead | null>(null);
+  const [legtAn, setLegtAn] = useState(false);
 
   async function neuLaden() {
     setLaedt(true);
     setLadeFehler(null);
 
-    const [{ data: leadDaten, error: leadFehler }, { data: interaktionsDaten, error: intFehler }] =
-      await Promise.all([
-        supabase.from('leads').select('*').order('created_at', { ascending: false }),
+    // Beide Abfragen blättern über alle Seiten: PostgREST kappt sonst
+    // stillschweigend bei 1000 Zeilen, und fehlende Interaktionen ergäben
+    // keinen Fehler, sondern einen zu niedrigen Score.
+    const [leadErgebnis, interaktionsErgebnis] = await Promise.all([
+      ladeAlleSeiten<Lead>((von, bis) =>
+        supabase
+          .from('leads')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .range(von, bis)
+      ),
+      ladeAlleSeiten<LeadInteractionRow>((von, bis) =>
         supabase
           .from('lead_interactions')
           .select('*')
-          .order('occurred_at', { ascending: false }),
-      ]);
+          // Ältere Signale sind so weit abgeklungen, dass sie den gerundeten
+          // Score nicht mehr bewegen — siehe RELEVANZ_FENSTER_TAGE.
+          .gte('occurred_at', vorTagen(RELEVANZ_FENSTER_TAGE))
+          .order('occurred_at', { ascending: false })
+          .range(von, bis)
+      ),
+    ]);
 
-    if (leadFehler || intFehler) {
+    if (leadErgebnis.fehler || interaktionsErgebnis.fehler) {
       setLadeFehler(
-        (leadFehler ?? intFehler)?.message ?? 'Leads konnten nicht geladen werden.'
+        leadErgebnis.fehler ??
+          interaktionsErgebnis.fehler ??
+          'Leads konnten nicht geladen werden.'
       );
       setLaedt(false);
       return;
     }
 
     const gruppiert = new Map<string, LeadInteractionRow[]>();
-    for (const zeile of interaktionsDaten ?? []) {
+    for (const zeile of interaktionsErgebnis.daten) {
       const liste = gruppiert.get(zeile.lead_id) ?? [];
       liste.push(zeile);
       gruppiert.set(zeile.lead_id, liste);
     }
 
-    setLeads(leadDaten ?? []);
+    setLeads(leadErgebnis.daten);
     setInteraktionenProLead(gruppiert);
     setLaedt(false);
   }
@@ -128,23 +149,55 @@ export function LeadRadar({ session }: { session: Session }) {
   );
 
   async function aktionAusfuehren(lead: Lead) {
-    await supabase
+    setSchreibFehler(null);
+
+    const { error: statusFehler } = await supabase
       .from('leads')
       .update({ status: lead.status === 'neu' ? 'kontaktiert' : lead.status })
       .eq('id', lead.id);
+
+    if (statusFehler) {
+      setSchreibFehler(`Status konnte nicht aktualisiert werden: ${statusFehler.message}`);
+      return;
+    }
+
     // Ausgehende Interaktion: beendet den Wartezustand, zählt nicht zum Score.
-    await supabase.from('lead_interactions').insert({
+    const { error: interaktionsFehler } = await supabase.from('lead_interactions').insert({
       coach_id: coachId,
       lead_id: lead.id,
       typ: 'dm_antwort',
       richtung: 'ausgehend',
       quelle: 'manuell',
     });
+
+    if (interaktionsFehler) {
+      setSchreibFehler(
+        `Die Aktion wurde nicht vermerkt: ${interaktionsFehler.message}`
+      );
+      return;
+    }
     neuLaden();
   }
 
   async function notizAendern(lead: Lead, notiz: string) {
-    await supabase.from('leads').update({ notiz }).eq('id', lead.id);
+    setSchreibFehler(null);
+    const { error } = await supabase.from('leads').update({ notiz }).eq('id', lead.id);
+    if (error) {
+      // Ohne diese Meldung hielte die Coachin die Notiz für gespeichert.
+      setSchreibFehler(`Notiz zu ${lead.name} wurde nicht gespeichert: ${error.message}`);
+    }
+  }
+
+  async function leadAnlegen(neu: {
+    name: string;
+    instagram_handle: string | null;
+    quelle: LeadQuelle;
+    notiz: string | null;
+  }): Promise<string | null> {
+    const { error } = await supabase.from('leads').insert({ ...neu, coach_id: coachId });
+    if (error) return `Konnte nicht angelegt werden: ${error.message}`;
+    await neuLaden();
+    return null;
   }
 
   async function verknuepfenSpeichern(aenderungen: {
@@ -152,7 +205,17 @@ export function LeadRadar({ session }: { session: Session }) {
     consent_tracking: boolean;
   }) {
     if (!verknuepfenLead) return;
-    await supabase.from('leads').update(aenderungen).eq('id', verknuepfenLead.id);
+    setSchreibFehler(null);
+
+    const { error } = await supabase
+      .from('leads')
+      .update(aenderungen)
+      .eq('id', verknuepfenLead.id);
+
+    if (error) {
+      setSchreibFehler(`Verknüpfung nicht gespeichert: ${error.message}`);
+      return;
+    }
     setVerknuepfenLead(null);
     neuLaden();
   }
@@ -170,6 +233,9 @@ export function LeadRadar({ session }: { session: Session }) {
           </div>
           <div className="cs-lead-radar__konto">
             <span>{session.user.email}</span>
+            <button type="button" className="cs-btn cs-btn--primary" onClick={() => setLegtAn(true)}>
+              Neue Interessentin
+            </button>
             <button
               type="button"
               className="cs-btn cs-btn--ghost"
@@ -181,10 +247,39 @@ export function LeadRadar({ session }: { session: Session }) {
         </div>
       </header>
 
-      {ladeFehler && <p role="alert">{ladeFehler}</p>}
+      {ladeFehler && (
+        <p className="cs-fehler" role="alert">
+          {ladeFehler}
+        </p>
+      )}
+      {schreibFehler && (
+        <p className="cs-fehler" role="alert">
+          {schreibFehler}{' '}
+          <button
+            type="button"
+            className="cs-fehler__schliessen"
+            onClick={() => setSchreibFehler(null)}
+          >
+            ausblenden
+          </button>
+        </p>
+      )}
       {laedt && <p>Lädt…</p>}
 
-      {!laedt && !ladeFehler && (
+      {!laedt && !ladeFehler && leads.length === 0 && (
+        <section className="cs-leer">
+          <h2 className="cs-heading cs-leer__titel">Noch niemand im Radar</h2>
+          <p className="cs-leer__text">
+            Lege deine erste Interessentin an — den Rest baut Lead-Radar nach und nach aus ihren
+            Interaktionen mit deinem Instagram-Konto auf.
+          </p>
+          <button type="button" className="cs-btn cs-btn--primary" onClick={() => setLegtAn(true)}>
+            Erste Interessentin anlegen
+          </button>
+        </section>
+      )}
+
+      {!laedt && !ladeFehler && leads.length > 0 && (
         <>
           <section className="cs-today-bar">
             <h2 className="cs-today-bar__title">Heute zu tun</h2>
@@ -234,6 +329,8 @@ export function LeadRadar({ session }: { session: Session }) {
           </div>
         </>
       )}
+
+      {legtAn && <LeadAnlegen onSchliessen={() => setLegtAn(false)} onAnlegen={leadAnlegen} />}
 
       {verknuepfenLead && (
         <LeadVerknuepfen
