@@ -56,8 +56,12 @@ end;
 $$;
 
 -- Export-View (DSGVO Art. 20) um die neuen Felder ergaenzen.
+-- Bewusst DROP + CREATE statt CREATE OR REPLACE: Postgres erlaubt beim Replace
+-- nur das Anhaengen von Spalten am Ende, nicht das Einfuegen an vorhandener
+-- Position ("cannot change name of view column").
 -- security_invoker = true bleibt zwingend, sonst Cross-Tenant-Leak.
-create or replace view public.lead_export_v
+drop view if exists public.lead_export_v;
+create view public.lead_export_v
 with (security_invoker = true) as
 select
   l.id                    as lead_id,
