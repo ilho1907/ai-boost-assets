@@ -59,6 +59,7 @@ export function LeadRadar({ session }: { session: Session }) {
   const [laedt, setLaedt] = useState(true);
   const [verknuepfenLead, setVerknuepfenLead] = useState<Lead | null>(null);
   const [legtAn, setLegtAn] = useState(false);
+  const [zeigtArchiv, setZeigtArchiv] = useState(false);
 
   async function neuLaden() {
     setLaedt(true);
@@ -113,9 +114,17 @@ export function LeadRadar({ session }: { session: Session }) {
     neuLaden();
   }, []);
 
-  /** Interessentinnen — alles außer bereits gebuchten Klientinnen. */
-  const interessentinnen = useMemo(() => leads.filter((l) => l.status !== 'client'), [leads]);
+  /**
+   * Interessentinnen — ohne Klientinnen (die haben eine eigene Ansicht) und
+   * ohne archivierte. Archiviert heißt `verloren`; die Zeile bleibt erhalten,
+   * sie verschwindet nur aus der Triage.
+   */
+  const interessentinnen = useMemo(
+    () => leads.filter((l) => l.status !== 'client' && l.status !== 'verloren'),
+    [leads]
+  );
   const klientinnenRoh = useMemo(() => leads.filter((l) => l.status === 'client'), [leads]);
+  const archivierte = useMemo(() => leads.filter((l) => l.status === 'verloren'), [leads]);
 
   const ausgewertet = useMemo<LeadMitAuswertung[]>(() => {
     const jetzt = new Date();
@@ -230,6 +239,40 @@ export function LeadRadar({ session }: { session: Session }) {
       // Ohne diese Meldung hielte die Coachin die Notiz für gespeichert.
       setSchreibFehler(`Notiz zu ${lead.name} wurde nicht gespeichert: ${error.message}`);
     }
+  }
+
+  /** Nimmt eine Interessentin aus der Triage. Die Zeile bleibt erhalten. */
+  async function archivieren(lead: Lead) {
+    setSchreibFehler(null);
+    const { error } = await supabase
+      .from('leads')
+      .update({ status: 'verloren' })
+      .eq('id', lead.id);
+
+    if (error) {
+      setSchreibFehler(`${lead.name} wurde nicht archiviert: ${error.message}`);
+      return;
+    }
+    neuLaden();
+  }
+
+  /**
+   * Holt eine archivierte Interessentin zurück. Der vorherige Status ist nicht
+   * gespeichert; `kontaktiert` ist die ehrlichste Annahme, denn archiviert wird
+   * frühestens nach einer Berührung.
+   */
+  async function zurueckholen(lead: Lead) {
+    setSchreibFehler(null);
+    const { error } = await supabase
+      .from('leads')
+      .update({ status: 'kontaktiert' })
+      .eq('id', lead.id);
+
+    if (error) {
+      setSchreibFehler(`${lead.name} konnte nicht zurückgeholt werden: ${error.message}`);
+      return;
+    }
+    neuLaden();
   }
 
   async function leadAnlegen(neu: {
@@ -364,6 +407,7 @@ export function LeadRadar({ session }: { session: Session }) {
                         onAktionAusfuehren={aktionAusfuehren}
                         onNotizAendern={notizAendern}
                         onVerknuepfen={setVerknuepfenLead}
+                        onArchivieren={archivieren}
                       />
                     ))}
                   </div>
@@ -392,6 +436,40 @@ export function LeadRadar({ session }: { session: Session }) {
                   />
                 ))}
               </div>
+            </section>
+          )}
+          {archivierte.length > 0 && (
+            <section className="cs-archiv">
+              <button
+                type="button"
+                className="cs-archiv__schalter"
+                onClick={() => setZeigtArchiv((z) => !z)}
+                aria-expanded={zeigtArchiv}
+              >
+                {archivierte.length} archiviert — {zeigtArchiv ? 'ausblenden' : 'anzeigen'}
+              </button>
+
+              {zeigtArchiv && (
+                <ul className="cs-archiv__liste">
+                  {archivierte.map((lead) => (
+                    <li key={lead.id} className="cs-archiv__eintrag">
+                      <span>
+                        {lead.name}
+                        {lead.instagram_handle && (
+                          <span className="cs-archiv__handle"> @{lead.instagram_handle}</span>
+                        )}
+                      </span>
+                      <button
+                        type="button"
+                        className="cs-btn cs-btn--ghost"
+                        onClick={() => zurueckholen(lead)}
+                      >
+                        Zurückholen
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </section>
           )}
         </>

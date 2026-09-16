@@ -308,6 +308,6 @@ coach-studio/
 ## Tests
 
 ```bash
-npm run test              # 64 Vitest-Fälle (Scoring, Betreuung, Ingestion, Paginierung)
+npm run test              # 78 Vitest-Fälle (Logik + Komponenten)
 ./supabase/tests/run.sh   # 16 Schema-Zusicherungen gegen PostgreSQL 16
 ```

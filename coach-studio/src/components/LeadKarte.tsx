@@ -9,6 +9,7 @@ export interface LeadKarteProps {
   onAktionAusfuehren: (lead: Lead) => void;
   onNotizAendern: (lead: Lead, notiz: string) => void;
   onVerknuepfen: (lead: Lead) => void;
+  onArchivieren: (lead: Lead) => void;
 }
 
 const TREND_LABEL: Record<ScoreErgebnis['trend'], string> = {
@@ -24,6 +25,7 @@ export function LeadKarte({
   onAktionAusfuehren,
   onNotizAendern,
   onVerknuepfen,
+  onArchivieren,
 }: LeadKarteProps) {
   return (
     <article className="cs-card" data-lead-id={lead.id}>
@@ -73,13 +75,27 @@ export function LeadKarte({
         <p className="cs-card__aktion-begruendung">{empfehlung.begruendung}</p>
       </div>
 
-      <button
-        type="button"
-        className="cs-btn cs-btn--primary"
-        onClick={() => onAktionAusfuehren(lead)}
-      >
-        {empfehlung.titel}
-      </button>
+      <div className="cs-card__foot">
+        <button
+          type="button"
+          className="cs-btn cs-btn--primary"
+          onClick={() => onAktionAusfuehren(lead)}
+        >
+          {/* Bei der Archivieren-Empfehlung wäre "Kontakt vermerken" das falsche
+              Versprechen — dort führt der Archivieren-Knopf daneben die Aktion aus. */}
+          {empfehlung.titel === 'Archivieren oder letzter Impuls'
+            ? 'Letzter Impuls'
+            : empfehlung.titel}
+        </button>
+        <button
+          type="button"
+          className="cs-btn cs-btn--ghost"
+          onClick={() => onArchivieren(lead)}
+          title="Aus dem Radar nehmen. Lässt sich jederzeit zurückholen."
+        >
+          Archivieren
+        </button>
+      </div>
 
       <textarea
         className="cs-card__notiz"

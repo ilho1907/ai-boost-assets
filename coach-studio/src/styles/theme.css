@@ -259,6 +259,58 @@
 /* Klientinnen-Betreuung — bewusst andere Farbwelt als die Lead-Triage:
    Sage statt Plum, weil es hier um Pflege geht, nicht um Temperatur. */
 
+/* Archiv — bewusst leise: es soll auffindbar sein, aber nicht ablenken. */
+
+.cs-archiv {
+  margin-top: 2rem;
+  padding-top: 1.2rem;
+  border-top: 1px solid var(--cs-line);
+}
+
+.cs-archiv__schalter {
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: var(--cs-font-text);
+  font-size: 0.82rem;
+  color: #8a7d8c;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.cs-archiv__schalter:hover,
+.cs-archiv__schalter:focus-visible {
+  color: var(--cs-plum);
+}
+
+.cs-archiv__liste {
+  list-style: none;
+  padding: 0;
+  margin: 0.9rem 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  max-width: 520px;
+}
+
+.cs-archiv__eintrag {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  background: #fff;
+  border: 1px solid var(--cs-line);
+  border-radius: 10px;
+  padding: 0.55rem 0.8rem;
+  font-size: 0.88rem;
+}
+
+.cs-archiv__handle {
+  color: #8a7d8c;
+  font-size: 0.82rem;
+}
+
 .cs-klientinnen {
   margin-top: 2.5rem;
   padding-top: 2rem;
