@@ -9,20 +9,41 @@
 \set QUIET on
 set client_min_messages to warning;
 
--- Zwei Coachinnen anlegen und die Tabellenrechte vergeben (in Supabase
--- uebernimmt das die Plattform fuer die Rolle `authenticated`).
+-- Drei Coachinnen anlegen: A und B sind fuer die bestehenden Tests bereits
+-- zugelassen. C bleibt bewusst ohne coach_profile — an ihr wird unten der
+-- Einladungs-Flow selbst getestet.
 insert into auth.users (id, email) values
   ('11111111-1111-1111-1111-111111111111', 'coachin.a@example.test'),
-  ('22222222-2222-2222-2222-222222222222', 'coachin.b@example.test')
+  ('22222222-2222-2222-2222-222222222222', 'coachin.b@example.test'),
+  ('33333333-3333-3333-3333-333333333333', 'coachin.c@example.test')
 on conflict do nothing;
 
 grant select, insert, update, delete on public.leads, public.lead_interactions to coach_app;
-grant select on public.lead_export_v to coach_app;
+grant select on public.lead_export_v, public.coach_profile to coach_app;
+
+-- A und B sind bereits zugelassen (direkt als postgres eingetragen, umgeht RLS
+-- als Superuser — in Supabase entsteht diese Zeile ausschliesslich ueber
+-- coach_einladung_einloesen(), s. Abschnitt 17ff.).
+insert into public.coach_profile (coach_id) values
+  ('11111111-1111-1111-1111-111111111111'),
+  ('22222222-2222-2222-2222-222222222222')
+on conflict do nothing;
 
 -- Bewusst KEIN Grant auf coach_instagram_konten: dort sollen ausschliesslich
 -- die Rechte greifen, die die Migration der Rolle `authenticated` gibt.
 insert into public.coach_instagram_konten (coach_id, ig_konto_id, access_token)
 values ('11111111-1111-1111-1111-111111111111', '17841400000000000', 'geheim-darf-nie-in-den-browser')
+on conflict do nothing;
+
+-- Einladungen fuer den Zulassungs-Flow unten (Abschnitt 17ff.): eine gueltige,
+-- eine an eine andere E-Mail-Adresse gebundene, eine bereits abgelaufene.
+insert into public.coach_einladungen (id, email, token, laeuft_ab_at) values
+  ('bbbb0000-0000-0000-0000-000000000001', 'coachin.c@example.test',
+   'cccc0000-0000-0000-0000-000000000001', now() + interval '14 days'),
+  ('bbbb0000-0000-0000-0000-000000000002', 'jemand.anderes@example.test',
+   'cccc0000-0000-0000-0000-000000000002', now() + interval '14 days'),
+  ('bbbb0000-0000-0000-0000-000000000003', 'coachin.c@example.test',
+   'cccc0000-0000-0000-0000-000000000003', now() - interval '1 day')
 on conflict do nothing;
 
 -- Ab hier als normale Nutzerin, nicht als Superuser.
@@ -266,6 +287,89 @@ begin
   end if;
 end $$;
 \echo '    OK: Lead und alle abgeleiteten Daten entfernt'
+
+\echo '--- 17. Ohne coach_profile: angemeldet, aber keine Coachin ---'
+select set_config('request.jwt.claim.sub', '33333333-3333-3333-3333-333333333333', false);
+select set_config('request.jwt.claims', '{"email":"coachin.c@example.test"}', false);
+
+do $$
+begin
+  if (select count(*) from public.leads) <> 0 then
+    raise exception 'FEHLGESCHLAGEN: nicht zugelassene Person sieht Leads';
+  end if;
+
+  begin
+    insert into public.leads (coach_id, name) values
+      ('33333333-3333-3333-3333-333333333333', 'sollte scheitern');
+    raise exception 'FEHLGESCHLAGEN: nicht zugelassene Person konnte einen Lead anlegen';
+  exception when insufficient_privilege then
+    null; -- erwartet: ist_zugelassene_coachin() liefert false
+  end;
+end $$;
+\echo '    OK: Session allein macht niemanden zur Coachin'
+
+\echo '--- 18. Einladung an eine andere E-Mail-Adresse wird abgelehnt ---'
+do $$
+begin
+  begin
+    perform public.coach_einladung_einloesen('cccc0000-0000-0000-0000-000000000002');
+    raise exception 'FEHLGESCHLAGEN: Einladung fuer eine fremde E-Mail wurde eingeloest';
+  exception when insufficient_privilege then
+    null; -- erwartet
+  end;
+end $$;
+\echo '    OK: E-Mail-Abgleich greift'
+
+\echo '--- 19. Abgelaufene Einladung wird abgelehnt ---'
+do $$
+begin
+  begin
+    perform public.coach_einladung_einloesen('cccc0000-0000-0000-0000-000000000003');
+    raise exception 'FEHLGESCHLAGEN: abgelaufene Einladung wurde eingeloest';
+  exception when insufficient_privilege then
+    if sqlerrm not like '%abgelaufen%' then
+      raise exception 'FEHLGESCHLAGEN: falsche Fehlermeldung fuer abgelaufene Einladung: %', sqlerrm;
+    end if;
+  end;
+end $$;
+\echo '    OK: Ablaufdatum wird geprueft'
+
+\echo '--- 20. Gueltige Einladung schaltet die Coachin frei ---'
+select public.coach_einladung_einloesen('cccc0000-0000-0000-0000-000000000001');
+
+do $$
+begin
+  if not exists (
+    select 1 from public.coach_profile where coach_id = '33333333-3333-3333-3333-333333333333'
+  ) then
+    raise exception 'FEHLGESCHLAGEN: coach_profile wurde nicht angelegt';
+  end if;
+end $$;
+
+insert into public.leads (coach_id, name) values
+  ('33333333-3333-3333-3333-333333333333', 'Erster Lead nach Freischaltung');
+
+do $$
+begin
+  if (select count(*) from public.leads) <> 1 then
+    raise exception 'FEHLGESCHLAGEN: frisch zugelassene Coachin sieht ihren eigenen Lead nicht';
+  end if;
+end $$;
+\echo '    OK: nach Einloesen sofort als Coachin nutzbar'
+
+\echo '--- 21. Dieselbe Einladung laesst sich kein zweites Mal einloesen ---'
+do $$
+begin
+  begin
+    perform public.coach_einladung_einloesen('cccc0000-0000-0000-0000-000000000001');
+    raise exception 'FEHLGESCHLAGEN: Einladung wurde zweimal akzeptiert';
+  exception when insufficient_privilege then
+    if sqlerrm not like '%bereits eingeloest%' then
+      raise exception 'FEHLGESCHLAGEN: falsche Fehlermeldung fuer verbrauchte Einladung: %', sqlerrm;
+    end if;
+  end;
+end $$;
+\echo '    OK: Einladung ist nach Gebrauch verbraucht'
 
 reset role;
 \echo ''

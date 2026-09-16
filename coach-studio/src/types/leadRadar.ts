@@ -28,6 +28,14 @@ export interface Lead {
   updated_at: string;
 }
 
+/** Spiegelt die Tabelle public.coach_profile. Existenz = zugelassene Coachin. */
+export interface CoachProfile {
+  coach_id: string;
+  name: string | null;
+  eingeladen_von: string | null;
+  erstellt_at: string;
+}
+
 /** Spiegelt die Tabelle public.lead_interactions. */
 export interface LeadInteractionRow {
   id: string;

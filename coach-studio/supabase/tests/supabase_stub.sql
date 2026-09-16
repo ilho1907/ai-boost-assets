@@ -20,6 +20,16 @@ as $$
   select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid;
 $$;
 
+-- Entspricht Supabases Implementierung: liest die vollen JWT-Claims als jsonb.
+-- Im Test setzen wir sie mit set_config('request.jwt.claims', ...).
+create or replace function auth.jwt()
+returns jsonb
+language sql
+stable
+as $$
+  select nullif(current_setting('request.jwt.claims', true), '')::jsonb;
+$$;
+
 do $$
 begin
   if not exists (select 1 from pg_roles where rolname = 'authenticated') then

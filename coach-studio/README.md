@@ -24,9 +24,11 @@ gegenprüfen):
   bestehenden Landingpage — wie im Master-Prompt gefordert, aber im
   Widerspruch zur aktuellen Optik der Website.
 - **Auth-Modell:** `coach_id` wird mit `auth.uid()` gleichgesetzt (eine
-  Coachin = ein Supabase-Auth-User). Falls das künftige Coach-Studio ein
-  anderes Rollenmodell (z. B. eine separate `coaches`-Tabelle mit eigener
-  ID) nutzt, müssen die RLS-Policies entsprechend angepasst werden.
+  Coachin = ein Supabase-Auth-User), zusätzlich abgesichert durch
+  `coach_profile` — Existenz dieser Zeile entscheidet, ob eine angemeldete
+  Person tatsächlich Coach-Rechte hat (siehe „Coach-Zulassung" unten). Falls
+  das künftige Coach-Studio ein anderes Rollenmodell nutzt, müssen die
+  RLS-Policies entsprechend angepasst werden.
 - **Score-Persistenz:** Der Score wird live aus `lead_interactions` berechnet,
   nicht vorgehalten. Die ursprünglich vorgesehene Tabelle `lead_scores` wurde
   wieder entfernt: sie wurde nie befüllt, und eine leere Tabelle, die aussieht
@@ -44,6 +46,10 @@ bitte vor dem produktiven Einsatz Rücksprache halten.
   öffentliche Redirect-URL; bis dahin lässt sich eine Verknüpfung nur manuell
   in `coach_instagram_konten` eintragen.
 - **Meta App Review** für die Messaging- und Comment-Scopes (dauert Wochen).
+- **Admin-Oberfläche für Einladungen** — Anlegen einer `coach_einladungen`-
+  Zeile geht vorerst nur per SQL; ein Calendly-Webhook, der nach einem
+  abgeschlossenen Kennenlerngespräch automatisch einlädt, ist skizziert, aber
+  nicht gebaut.
 - **Kalibrierung der Gewichte** an echten Daten: die Werte (40/15/8/6/5/2),
   Schwellen (20/50) und die Halbwertszeit (14 Tage) sind begründete
   Vorschläge, aber nicht empirisch validiert.
@@ -82,11 +88,12 @@ PostgreSQL 16:
 
 Das Skript startet eine Wegwerf-Datenbank, bildet nach, was Supabase
 bereitstellt (`auth`-Schema, `auth.uid()`, Rolle `authenticated`), spielt alle
-Migrationen ein und prüft 16 Zusicherungen: Mandantentrennung über RLS
+Migrationen ein und prüft 21 Zusicherungen: Mandantentrennung über RLS
 (inklusive Export-View), das Consent-Gate, das Abräumen abgeleiteter Daten beim
 Widerruf, Default-Gewichte, Deduplizierung wiederholter Webhook-Zustellungen,
 die Unlesbarkeit des Access-Tokens für angemeldete Nutzerinnen, das Nachführen
-der letzten Berührung und die Kaskadenlöschung nach Art. 17.
+der letzten Berührung, die Coach-Zulassung über gebundene Einladungen und die
+Kaskadenlöschung nach Art. 17.
 
 Die Tests laufen bewusst als **Nicht-Superuser** — Superuser umgehen RLS, ein
 Test als `postgres` würde also nichts beweisen. Das Skript darf daher nicht als
@@ -104,6 +111,47 @@ erklärt die Oberfläche das, statt leer zu bleiben.
 
 In den Supabase-Einstellungen muss die Domain der App als Redirect-URL
 hinterlegt sein, sonst führt der Link ins Leere.
+
+### Coach-Zulassung: ein Magic Link macht niemanden zur Coachin
+
+Bis hierher prüfte jede RLS-Policy nur `coach_id = auth.uid()` — **jede**
+angemeldete Person war automatisch ihre eigene "Coachin", obwohl das
+Kernversprechen "verifizierte Coachinnen" lautet. Ein Magic Link beweist nur
+den Zugriff auf eine E-Mail-Adresse, keine Zulassung.
+
+Der Zugang läuft jetzt über eine **Einladung, die an eine E-Mail-Adresse
+gebunden ist** — kein teilbarer Code:
+
+1. Kostenloses Kennenlerngespräch (Calendly-Link in `Zulassung.tsx`, aktuell
+   Platzhalter).
+2. Coach legt danach serverseitig eine Zeile in `coach_einladungen` an
+   (E-Mail, 14 Tage gültig — dafür ist noch keine Admin-Oberfläche gebaut,
+   siehe unten).
+3. Die eingeladene Person meldet sich mit derselben E-Mail per Magic Link an,
+   fügt den Einladungslink ein → `coach_einladung_einloesen(token)` prüft
+   `auth.jwt() ->> 'email'` **serverseitig** gegen die hinterlegte E-Mail
+   (nicht gegen ein Client-Feld) und legt bei Erfolg eine Zeile in
+   `coach_profile` an.
+4. **Existenz von `coach_profile`** ist ab jetzt Voraussetzung jeder
+   RLS-Policy auf `leads`, `lead_interactions` und `coach_instagram_konten`
+   (`ist_zugelassene_coachin()`), zusätzlich zu `coach_id = auth.uid()`.
+
+`AuthGate` prüft beide Fragen getrennt: Session vorhanden? Dann
+`coach_profile` vorhanden? Fehlt Letzteres, zeigt `Zulassung.tsx` den
+Einladungs-Dialog statt eines leeren Dashboards. Der Einladungs-Token
+übersteht den Magic-Link-Redirect über `sessionStorage`
+(`src/lib/einladung.ts`) — der Redirect geht auf eine feste URL, ein
+`?einladung=…`-Parameter aus dem ersten Klick wäre sonst verloren.
+
+**Noch offen:** Es gibt noch keine Oberfläche, um Einladungen anzulegen —
+das passiert vorerst per SQL/Dashboard (`insert into coach_einladungen
+(email) values (...)`) oder über einen künftigen Calendly-Webhook, der nach
+einem abgeschlossenen Kennenlerngespräch automatisch einlädt.
+
+Im Schema-Test verifiziert: Session ohne `coach_profile` sieht keine Leads
+und kann auch keinen eigenen anlegen; eine Einladung an eine fremde E-Mail
+wird abgelehnt; eine abgelaufene ebenso; nach erfolgreichem Einlösen ist der
+Zugriff sofort nutzbar; dieselbe Einladung lässt sich kein zweites Mal lösen.
 
 ---
 
@@ -319,8 +367,10 @@ coach-studio/
   src/lib/scoring.ts              Scoring- + Nächste-Aktion-Funktionen (rein)
   src/lib/instagramIngest.ts      Webhook → lead_interactions (rein)
   src/lib/instagramProfil.ts      Follow-Status aus der User-Profile-API (rein)
-  src/components/                 AuthGate, Anmeldung, LeadRadar, LeadKarte,
-                                  LeadVerknuepfen, LeadAnlegen, KlientinKarte
+  src/lib/einladung.ts            Einladungs-Token: Extraktion + sessionStorage (rein)
+  src/components/                 AuthGate, Anmeldung, Zulassung, LeadRadar,
+                                  LeadKarte, LeadVerknuepfen, LeadAnlegen,
+                                  KlientinKarte
   src/types/leadRadar.ts          Typen passend zum DB-Schema
   src/styles/theme.css            Plum/Rose/Sage, Fraunces
 ```
@@ -328,6 +378,6 @@ coach-studio/
 ## Tests
 
 ```bash
-npm run test              # 86 Vitest-Fälle (Logik + Komponenten)
-./supabase/tests/run.sh   # 16 Schema-Zusicherungen gegen PostgreSQL 16
+npm run test              # 93 Vitest-Fälle (Logik + Komponenten)
+./supabase/tests/run.sh   # 21 Schema-Zusicherungen gegen PostgreSQL 16
 ```
