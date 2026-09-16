@@ -13,6 +13,11 @@ import {
   type ScoreErgebnis,
 } from '../lib/scoring';
 import { ladeAlleSeiten, vorTagen } from '../lib/supabaseAbfragen';
+import {
+  pruefeVerbindung,
+  type VerbindungsZeile,
+  type VerbindungsZustand,
+} from '../lib/instagramVerbindung';
 import type { Lead, LeadInteractionRow, LeadQuelle } from '../types/leadRadar';
 import { KlientinKarte } from './KlientinKarte';
 import { LeadAnlegen } from './LeadAnlegen';
@@ -60,6 +65,7 @@ export function LeadRadar({ session }: { session: Session }) {
   const [verknuepfenLead, setVerknuepfenLead] = useState<Lead | null>(null);
   const [legtAn, setLegtAn] = useState(false);
   const [zeigtArchiv, setZeigtArchiv] = useState(false);
+  const [verbindung, setVerbindung] = useState<VerbindungsZustand | null>(null);
 
   async function neuLaden() {
     setLaedt(true);
@@ -110,8 +116,24 @@ export function LeadRadar({ session }: { session: Session }) {
     setLaedt(false);
   }
 
+  /**
+   * Zustand der Instagram-Verknüpfung. Der Access-Token selbst ist für
+   * angemeldete Nutzerinnen spaltenweise gesperrt — hier wird nur gelesen,
+   * wann er abläuft. Ein Fehler beim Lesen bleibt bewusst still: das Band ist
+   * ein Hinweis, kein Grund, die Tagesansicht zu blockieren.
+   */
+  async function verbindungPruefen() {
+    const { data } = await supabase
+      .from('coach_instagram_konten')
+      .select('ig_benutzername, token_gueltig_bis')
+      .maybeSingle();
+
+    setVerbindung(pruefeVerbindung(data as VerbindungsZeile | null));
+  }
+
   useEffect(() => {
     neuLaden();
+    verbindungPruefen();
   }, []);
 
   /**
@@ -333,6 +355,12 @@ export function LeadRadar({ session }: { session: Session }) {
           </div>
         </div>
       </header>
+
+      {verbindung?.handlungNoetig && (
+        <p className={`cs-verbindung cs-verbindung--${verbindung.stufe}`} role="status">
+          {verbindung.hinweis}
+        </p>
+      )}
 
       {ladeFehler && (
         <p className="cs-fehler" role="alert">

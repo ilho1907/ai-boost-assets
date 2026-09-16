@@ -261,6 +261,34 @@
 
 /* Archiv — bewusst leise: es soll auffindbar sein, aber nicht ablenken. */
 
+/* Verbindungshinweis — ruhig bei "noch nicht verbunden", bestimmter beim
+   Ablauf, denn dann fehlen bereits Daten. Nie alarmistisch. */
+
+.cs-verbindung {
+  border-radius: 10px;
+  padding: 0.7rem 0.9rem;
+  margin: 0 0 1.2rem;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  border: 1px solid var(--cs-line);
+}
+
+.cs-verbindung--nicht_verbunden {
+  background: var(--cs-sage-soft);
+  color: #3f4a42;
+}
+
+.cs-verbindung--laeuft_bald_ab {
+  background: var(--cs-rose-soft);
+  color: #7a5a60;
+}
+
+.cs-verbindung--abgelaufen {
+  background: #eee3ec;
+  color: var(--cs-plum-deep);
+  border-color: var(--cs-rose);
+}
+
 .cs-archiv {
   margin-top: 2rem;
   padding-top: 1.2rem;

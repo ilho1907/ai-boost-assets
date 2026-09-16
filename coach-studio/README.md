@@ -206,6 +206,26 @@ Nachrichten den Wartezustand beenden. Erst dadurch verschwindet die Empfehlung
 Coachin darf ihre eigene Zeile ja sehen — ohne den Entzug läge ihr Token im
 Browser.
 
+### Verbindungszustand
+
+Metas langlebige Access-Tokens laufen nach rund 60 Tagen ab. Ohne sichtbare
+Warnung ist das ein **stiller Ausfall**: der Webhook liefert nichts mehr, es
+erscheint keine Fehlermeldung, die Oberfläche sieht normal aus — nur die Scores
+altern langsam vor sich hin. Diese Stille ist das eigentliche Problem, nicht
+der Ablauf.
+
+`src/lib/instagramVerbindung.ts` wertet deshalb `token_gueltig_bis` aus und
+blendet ein Hinweisband ein, wenn etwas zu tun ist: noch nicht verbunden, läuft
+in den nächsten sieben Tagen ab, oder bereits abgelaufen. Ist alles in Ordnung,
+erscheint **nichts** — ein Band, das immer da ist, wird übersehen.
+
+Der Hinweis benennt jeweils die Folge („danach kommen keine neuen Interaktionen
+mehr an"), nicht nur den Zustand. Fehlt ein Ablaufdatum oder ist es unlesbar,
+wird das als unbekannt behandelt statt als „alles gut" — geraten wird nichts.
+
+Das automatische **Verlängern** des Tokens fehlt noch; es gehört zum
+OAuth-Callback und braucht eine registrierte Meta-App.
+
 ### Grenzen der Graph API
 
 Für Likes/Saves liefert die Instagram Graph API in der Regel nur
@@ -308,6 +328,6 @@ coach-studio/
 ## Tests
 
 ```bash
-npm run test              # 78 Vitest-Fälle (Logik + Komponenten)
+npm run test              # 86 Vitest-Fälle (Logik + Komponenten)
 ./supabase/tests/run.sh   # 16 Schema-Zusicherungen gegen PostgreSQL 16
 ```
