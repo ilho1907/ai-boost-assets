@@ -27,10 +27,10 @@ gegenprüfen):
   Coachin = ein Supabase-Auth-User). Falls das künftige Coach-Studio ein
   anderes Rollenmodell (z. B. eine separate `coaches`-Tabelle mit eigener
   ID) nutzt, müssen die RLS-Policies entsprechend angepasst werden.
-- **Score-Persistenz:** `lead_scores` ist als Tabelle für periodisch
-  vorberechnete Werte modelliert, die UI berechnet den Score aber zusätzlich
-  **live** aus `lead_interactions`, damit die Ansicht nach einer frischen
-  Interaktion sofort stimmt. Ein Job, der `lead_scores` befüllt, fehlt noch.
+- **Score-Persistenz:** Der Score wird live aus `lead_interactions` berechnet,
+  nicht vorgehalten. Die ursprünglich vorgesehene Tabelle `lead_scores` wurde
+  wieder entfernt: sie wurde nie befüllt, und eine leere Tabelle, die aussieht
+  als enthielte sie die Wahrheit, ist schlimmer als keine.
 - **Kein bestehendes Wochenüberblick-Modul zum Referenzieren vorhanden** —
   der Signal-Triage-Look wurde sinngemäß auf warm/lauwarm/kalt übertragen.
 
@@ -44,8 +44,6 @@ bitte vor dem produktiven Einsatz Rücksprache halten.
   öffentliche Redirect-URL; bis dahin lässt sich eine Verknüpfung nur manuell
   in `coach_instagram_konten` eintragen.
 - **Meta App Review** für die Messaging- und Comment-Scopes (dauert Wochen).
-- **Job, der `lead_scores` befüllt** — die UI rechnet derzeit live, die
-  Tabelle bleibt leer.
 - **Kalibrierung der Gewichte** an echten Daten: die Werte (40/15/8/6/5/2),
   Schwellen (20/50) und die Halbwertszeit (14 Tage) sind begründete
   Vorschläge, aber nicht empirisch validiert.
@@ -84,11 +82,11 @@ PostgreSQL 16:
 
 Das Skript startet eine Wegwerf-Datenbank, bildet nach, was Supabase
 bereitstellt (`auth`-Schema, `auth.uid()`, Rolle `authenticated`), spielt alle
-Migrationen ein und prüft 14 Zusicherungen: Mandantentrennung über RLS
+Migrationen ein und prüft 16 Zusicherungen: Mandantentrennung über RLS
 (inklusive Export-View), das Consent-Gate, das Abräumen abgeleiteter Daten beim
 Widerruf, Default-Gewichte, Deduplizierung wiederholter Webhook-Zustellungen,
-die Unlesbarkeit des Access-Tokens für angemeldete Nutzerinnen und die
-Kaskadenlöschung nach Art. 17.
+die Unlesbarkeit des Access-Tokens für angemeldete Nutzerinnen, das Nachführen
+der letzten Berührung und die Kaskadenlöschung nach Art. 17.
 
 Die Tests laufen bewusst als **Nicht-Superuser** — Superuser umgehen RLS, ein
 Test als `postgres` würde also nichts beweisen. Das Skript darf daher nicht als
@@ -106,6 +104,33 @@ erklärt die Oberfläche das, statt leer zu bleiben.
 
 In den Supabase-Einstellungen muss die Domain der App als Redirect-URL
 hinterlegt sein, sonst führt der Link ins Leere.
+
+---
+
+## Klientinnen: Betreuung statt Score
+
+Wer bereits gebucht hat, lässt sich nicht sinnvoll danach sortieren, wie
+interessiert sie wirkt — sie hat sich längst entschieden. Leads mit
+`status = 'client'` stehen deshalb nicht in der warm/lauwarm/kalt-Triage,
+sondern in einem eigenen Bereich mit einer anderen Leitfrage: **wann war
+zuletzt Kontakt?**
+
+| Stufe | Bedingung | Empfehlung |
+|---|---|---|
+| Im Fluss | Kontakt in den letzten 14 Tagen | „Alles im Fluss" (Prio 3) |
+| Check-in fällig | 14–29 Tage | „Kurzes Check-in" (Prio 2) |
+| Lange still | ab 30 Tagen | „Persönlich nachfragen" (Prio 1) |
+| — | noch kein Kontakt | „Ankommen begleiten" (Prio 2) |
+
+Der entscheidende Unterschied zum Lead-Scoring: hier zählt **jeder** Kontakt,
+auch der von der Coachin ausgehende. Beim Lead misst der Score das Interesse
+des Leads, eine eigene Nachricht darf ihn also nicht heben. Bei einer Klientin
+ist eine Nachricht der Coachin sehr wohl Kontakt. Gepflegt wird der Wert in
+`leads.letzte_beruehrung_at` durch einen Trigger auf `lead_interactions`,
+damit die Ansicht ohne Auswertung aller Zeilen stimmt.
+
+Klientinnen erscheinen gleichberechtigt in der „Heute zu tun"-Leiste: eine
+Begleitung, die einschläft, wiegt schwerer als ein lauwarmer Lead.
 
 ---
 
@@ -246,7 +271,7 @@ ausgeschlossen.
   explizit gelöscht wird — je nach Auslegung ggf. ergänzend automatisiert
   löschen.
 - **Löschung (Art. 17):** `select public.lead_delete_cascade('<lead_id>');`
-  löscht den Lead und kaskadiert auf `lead_interactions` und `lead_scores`.
+  löscht den Lead und kaskadiert auf `lead_interactions`.
   Läuft mit den Rechten der aufrufenden Coachin (`security invoker`) und ist
   zusätzlich durch RLS abgesichert. Im Test verifiziert.
 - **Export (Art. 20):** View `public.lead_export_v` liefert alle Stamm- und
@@ -275,7 +300,7 @@ coach-studio/
   src/lib/instagramIngest.ts      Webhook → lead_interactions (rein)
   src/lib/instagramProfil.ts      Follow-Status aus der User-Profile-API (rein)
   src/components/                 AuthGate, Anmeldung, LeadRadar, LeadKarte,
-                                  LeadVerknuepfen
+                                  LeadVerknuepfen, LeadAnlegen, KlientinKarte
   src/types/leadRadar.ts          Typen passend zum DB-Schema
   src/styles/theme.css            Plum/Rose/Sage, Fraunces
 ```
@@ -283,6 +308,6 @@ coach-studio/
 ## Tests
 
 ```bash
-npm run test              # 50 Vitest-Fälle (Scoring, Ingestion, Follow-Status)
-./supabase/tests/run.sh   # 14 Schema-Zusicherungen gegen PostgreSQL 16
+npm run test              # 64 Vitest-Fälle (Scoring, Betreuung, Ingestion, Paginierung)
+./supabase/tests/run.sh   # 16 Schema-Zusicherungen gegen PostgreSQL 16
 ```

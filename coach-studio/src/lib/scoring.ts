@@ -385,3 +385,83 @@ export function topAktionen<T extends { empfehlung: Empfehlung; score: number }>
     })
     .slice(0, anzahl);
 }
+
+// ---------------------------------------------------------------------------
+// Betreuung bestehender Klientinnen
+// ---------------------------------------------------------------------------
+
+/**
+ * Für eine Klientin ist der Interesse-Score die falsche Frage: sie hat sich
+ * längst entschieden. Was zählt, ist die Betreuung — wann war zuletzt
+ * überhaupt Kontakt, in beliebiger Richtung. Eine Nachricht der Coachin ist
+ * hier also ausdrücklich ein Kontakt, anders als beim Lead-Scoring.
+ */
+export type BetreuungsStufe = 'aktiv' | 'aufmerksamkeit' | 'still';
+
+export interface BetreuungsErgebnis {
+  stufe: BetreuungsStufe;
+  /** Volle Tage seit der letzten Berührung; null, wenn es noch keine gab. */
+  tageSeitKontakt: number | null;
+  empfehlung: Empfehlung;
+}
+
+/** Ab hier lohnt ein Check-in. */
+const BETREUUNG_AUFMERKSAMKEIT_TAGE = 14;
+/** Ab hier droht die Begleitung einzuschlafen. */
+const BETREUUNG_STILL_TAGE = 30;
+
+export function ermittleBetreuung(input: {
+  letzteBeruehrungAt: Date | null;
+  jetzt: Date;
+}): BetreuungsErgebnis {
+  const { letzteBeruehrungAt, jetzt } = input;
+
+  if (!letzteBeruehrungAt) {
+    return {
+      stufe: 'aufmerksamkeit',
+      tageSeitKontakt: null,
+      empfehlung: {
+        titel: 'Ankommen begleiten',
+        begruendung: 'Noch kein festgehaltener Kontakt — ein guter Start trägt weit.',
+        prioritaet: 2,
+      },
+    };
+  }
+
+  const tage = Math.floor((jetzt.getTime() - letzteBeruehrungAt.getTime()) / MS_PRO_TAG);
+
+  if (tage >= BETREUUNG_STILL_TAGE) {
+    return {
+      stufe: 'still',
+      tageSeitKontakt: tage,
+      empfehlung: {
+        titel: 'Persönlich nachfragen',
+        begruendung: `Seit ${tage} Tagen kein Austausch — melde dich, bevor der Faden reißt.`,
+        prioritaet: 1,
+      },
+    };
+  }
+
+  if (tage >= BETREUUNG_AUFMERKSAMKEIT_TAGE) {
+    return {
+      stufe: 'aufmerksamkeit',
+      tageSeitKontakt: tage,
+      empfehlung: {
+        titel: 'Kurzes Check-in',
+        begruendung: `Letzter Kontakt vor ${tage} Tagen — frag, wie es ihr gerade geht.`,
+        prioritaet: 2,
+      },
+    };
+  }
+
+  return {
+    stufe: 'aktiv',
+    tageSeitKontakt: tage,
+    empfehlung: {
+      titel: 'Alles im Fluss',
+      begruendung:
+        tage <= 0 ? 'Heute in Kontakt gewesen.' : `Zuletzt vor ${tage} Tagen in Kontakt.`,
+      prioritaet: 3,
+    },
+  };
+}

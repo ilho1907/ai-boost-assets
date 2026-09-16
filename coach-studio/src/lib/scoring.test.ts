@@ -3,6 +3,7 @@ import {
   DEFAULT_GEWICHTE,
   RELEVANZ_FENSTER_TAGE,
   berechneScore,
+  ermittleBetreuung,
   ermittleNaechsteAktion,
   formatiereSignal,
   topAktionen,
@@ -246,6 +247,49 @@ describe('ermittleNaechsteAktion', () => {
       jetzt: JETZT,
     });
     expect(empfehlung.titel).toBe('Beziehung pflegen');
+  });
+});
+
+describe('ermittleBetreuung', () => {
+  const tageHer = (tage: number) => new Date(JETZT.getTime() - tage * 24 * 60 * 60 * 1000);
+
+  it('führt eine Klientin ohne festgehaltenen Kontakt ans Ankommen heran', () => {
+    const b = ermittleBetreuung({ letzteBeruehrungAt: null, jetzt: JETZT });
+    expect(b.stufe).toBe('aufmerksamkeit');
+    expect(b.tageSeitKontakt).toBeNull();
+    expect(b.empfehlung.titel).toBe('Ankommen begleiten');
+  });
+
+  it('lässt frischen Kontakt in Ruhe', () => {
+    const b = ermittleBetreuung({ letzteBeruehrungAt: tageHer(3), jetzt: JETZT });
+    expect(b.stufe).toBe('aktiv');
+    expect(b.empfehlung.prioritaet).toBe(3);
+  });
+
+  it('meldet ab zwei Wochen ein Check-in an', () => {
+    const b = ermittleBetreuung({ letzteBeruehrungAt: tageHer(14), jetzt: JETZT });
+    expect(b.stufe).toBe('aufmerksamkeit');
+    expect(b.empfehlung.titel).toBe('Kurzes Check-in');
+  });
+
+  it('stuft ab 30 Tagen als still ein und priorisiert das Nachfragen', () => {
+    const b = ermittleBetreuung({ letzteBeruehrungAt: tageHer(31), jetzt: JETZT });
+    expect(b.stufe).toBe('still');
+    expect(b.empfehlung.prioritaet).toBe(1);
+    expect(b.empfehlung.begruendung).toContain('31');
+  });
+
+  it('zählt Kontakt in beide Richtungen — auch eine Nachricht der Coachin', () => {
+    // Anders als beim Lead-Score: dort zählen nur eingehende Signale.
+    // Hier ist jeder Kontakt ein Kontakt, wer ihn angestoßen hat ist egal.
+    const b = ermittleBetreuung({ letzteBeruehrungAt: tageHer(1), jetzt: JETZT });
+    expect(b.stufe).toBe('aktiv');
+  });
+
+  it('rundet heutigen Kontakt nicht in die Vergangenheit', () => {
+    const b = ermittleBetreuung({ letzteBeruehrungAt: JETZT, jetzt: JETZT });
+    expect(b.tageSeitKontakt).toBe(0);
+    expect(b.empfehlung.begruendung).toContain('Heute');
   });
 });
 

@@ -3,15 +3,18 @@ import type { Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabaseClient';
 import {
   berechneScore,
+  ermittleBetreuung,
   ermittleNaechsteAktion,
   topAktionen,
   RELEVANZ_FENSTER_TAGE,
+  type BetreuungsErgebnis,
   type Empfehlung,
   type InteraktionsTyp,
   type ScoreErgebnis,
 } from '../lib/scoring';
 import { ladeAlleSeiten, vorTagen } from '../lib/supabaseAbfragen';
 import type { Lead, LeadInteractionRow, LeadQuelle } from '../types/leadRadar';
+import { KlientinKarte } from './KlientinKarte';
 import { LeadAnlegen } from './LeadAnlegen';
 import { LeadKarte } from './LeadKarte';
 import { LeadVerknuepfen } from './LeadVerknuepfen';
@@ -22,6 +25,11 @@ interface LeadMitAuswertung {
   empfehlung: Empfehlung;
 }
 
+interface KlientinMitBetreuung {
+  lead: Lead;
+  betreuung: BetreuungsErgebnis;
+}
+
 const SPALTEN: { stufe: ScoreErgebnis['stufe']; titel: string }[] = [
   { stufe: 'warm', titel: 'Warm' },
   { stufe: 'lauwarm', titel: 'Lauwarm' },
@@ -29,13 +37,16 @@ const SPALTEN: { stufe: ScoreErgebnis['stufe']; titel: string }[] = [
 ];
 
 /**
- * Tagesansicht: alle Leads einer Coachin, gruppiert nach Interesse-Stufe,
- * mit einer "Heute zu tun"-Leiste für die dringendsten Empfehlungen.
+ * Tagesansicht der Coachin.
  *
- * Scores werden hier live aus den Rohinteraktionen berechnet (reine
- * Funktion aus scoring.ts) statt ausschließlich aus der periodisch
- * vorberechneten lead_scores-Tabelle zu lesen, damit die Ansicht auch nach
- * einer eben erst gespeicherten Interaktion sofort aktuell ist.
+ * Interessentinnen werden nach Interesse-Stufe triagiert; Klientinnen stehen
+ * bewusst daneben statt mittendrin: wer bereits gebucht hat, lässt sich nicht
+ * sinnvoll danach sortieren, wie interessiert sie wirkt. Für sie zählt, wie es
+ * um die Begleitung steht.
+ *
+ * Scores werden live aus den Rohinteraktionen berechnet (reine Funktion aus
+ * scoring.ts), damit die Ansicht auch nach einer eben gespeicherten
+ * Interaktion sofort stimmt.
  */
 export function LeadRadar({ session }: { session: Session }) {
   const coachId = session.user.id;
@@ -102,9 +113,13 @@ export function LeadRadar({ session }: { session: Session }) {
     neuLaden();
   }, []);
 
+  /** Interessentinnen — alles außer bereits gebuchten Klientinnen. */
+  const interessentinnen = useMemo(() => leads.filter((l) => l.status !== 'client'), [leads]);
+  const klientinnenRoh = useMemo(() => leads.filter((l) => l.status === 'client'), [leads]);
+
   const ausgewertet = useMemo<LeadMitAuswertung[]>(() => {
     const jetzt = new Date();
-    return leads.map((lead) => {
+    return interessentinnen.map((lead) => {
       // Zeilen kommen nach occurred_at absteigend aus der Abfrage.
       const alle = interaktionenProLead.get(lead.id) ?? [];
       const eingehend = alle.filter((row) => row.richtung !== 'ausgehend');
@@ -137,15 +152,44 @@ export function LeadRadar({ session }: { session: Session }) {
 
       return { lead, score, empfehlung };
     });
-  }, [leads, interaktionenProLead]);
+  }, [interessentinnen, interaktionenProLead]);
 
+  const klientinnen = useMemo<KlientinMitBetreuung[]>(() => {
+    const jetzt = new Date();
+    return klientinnenRoh
+      .map((lead) => ({
+        lead,
+        betreuung: ermittleBetreuung({
+          letzteBeruehrungAt: lead.letzte_beruehrung_at
+            ? new Date(lead.letzte_beruehrung_at)
+            : null,
+          jetzt,
+        }),
+      }))
+      .sort((a, b) => a.betreuung.empfehlung.prioritaet - b.betreuung.empfehlung.prioritaet);
+  }, [klientinnenRoh]);
+
+  // Klientinnen stehen in der "Heute zu tun"-Leiste gleichberechtigt neben
+  // Interessentinnen: eine Begleitung, die einschläft, wiegt schwerer als ein
+  // lauwarmer Lead. Ohne Score rangieren sie bei gleicher Priorität hinten.
   const heute = useMemo(
     () =>
       topAktionen(
-        ausgewertet.map((e) => ({ ...e, score: e.score.score })),
+        [
+          ...ausgewertet.map((e) => ({
+            lead: e.lead,
+            empfehlung: e.empfehlung,
+            score: e.score.score,
+          })),
+          ...klientinnen.map((k) => ({
+            lead: k.lead,
+            empfehlung: k.betreuung.empfehlung,
+            score: 0,
+          })),
+        ],
         3
       ),
-    [ausgewertet]
+    [ausgewertet, klientinnen]
   );
 
   async function aktionAusfuehren(lead: Lead) {
@@ -327,6 +371,29 @@ export function LeadRadar({ session }: { session: Session }) {
               );
             })}
           </div>
+
+          {klientinnen.length > 0 && (
+            <section className="cs-klientinnen">
+              <div className="cs-klientinnen__kopf">
+                <h2 className="cs-heading cs-klientinnen__titel">Deine Klientinnen</h2>
+                <p className="cs-klientinnen__text">
+                  Hier zählt nicht das Interesse, sondern die Begleitung — wann war zuletzt
+                  Kontakt?
+                </p>
+              </div>
+              <div className="cs-klientinnen__liste">
+                {klientinnen.map(({ lead, betreuung }) => (
+                  <KlientinKarte
+                    key={lead.id}
+                    lead={lead}
+                    betreuung={betreuung}
+                    onAktionAusfuehren={aktionAusfuehren}
+                    onNotizAendern={notizAendern}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
         </>
       )}
 

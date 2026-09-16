@@ -16,7 +16,7 @@ insert into auth.users (id, email) values
   ('22222222-2222-2222-2222-222222222222', 'coachin.b@example.test')
 on conflict do nothing;
 
-grant select, insert, update, delete on public.leads, public.lead_interactions, public.lead_scores to coach_app;
+grant select, insert, update, delete on public.leads, public.lead_interactions to coach_app;
 grant select on public.lead_export_v to coach_app;
 
 -- Bewusst KEIN Grant auf coach_instagram_konten: dort sollen ausschliesslich
@@ -215,10 +215,45 @@ begin
 end $$;
 \echo '    OK: Token bleibt serverseitig'
 
-\echo '--- 14. Loeschung (Art. 17) kaskadiert auf Interaktionen ---'
-insert into public.lead_scores (coach_id, lead_id, score, stufe)
-values ('11111111-1111-1111-1111-111111111111', 'aaaa0000-0000-0000-0000-000000000001', 42, 'lauwarm');
+\echo '--- 14. letzte_beruehrung_at wird per Trigger nachgefuehrt ---'
+do $$
+declare b timestamptz;
+begin
+  select letzte_beruehrung_at into b from public.leads
+  where id = 'aaaa0000-0000-0000-0000-000000000001';
+  if b is null then
+    raise exception 'FEHLGESCHLAGEN: letzte_beruehrung_at wurde nicht gesetzt';
+  end if;
+end $$;
 
+-- Auch eine AUSGEHENDE Nachricht ist Kontakt: fuer die Betreuung einer
+-- Klientin zaehlt jede Beruehrung, nicht nur eingehendes Interesse.
+insert into public.lead_interactions (coach_id, lead_id, typ, richtung, occurred_at)
+values ('11111111-1111-1111-1111-111111111111', 'aaaa0000-0000-0000-0000-000000000001',
+        'dm_antwort', 'ausgehend', now() + interval '1 minute');
+
+do $$
+declare b timestamptz;
+begin
+  select letzte_beruehrung_at into b from public.leads
+  where id = 'aaaa0000-0000-0000-0000-000000000001';
+  if b < now() then
+    raise exception 'FEHLGESCHLAGEN: ausgehender Kontakt hat die Beruehrung nicht nachgefuehrt';
+  end if;
+end $$;
+\echo '    OK: Kontakt in beide Richtungen zaehlt'
+
+\echo '--- 15. lead_scores existiert nicht mehr ---'
+do $$
+begin
+  if exists (select 1 from information_schema.tables
+             where table_schema = 'public' and table_name = 'lead_scores') then
+    raise exception 'FEHLGESCHLAGEN: lead_scores haette entfernt werden sollen';
+  end if;
+end $$;
+\echo '    OK: tote Tabelle entfernt'
+
+\echo '--- 16. Loeschung (Art. 17) kaskadiert auf Interaktionen ---'
 select public.lead_delete_cascade('aaaa0000-0000-0000-0000-000000000001');
 
 do $$
@@ -228,9 +263,6 @@ begin
   end if;
   if (select count(*) from public.lead_interactions) <> 0 then
     raise exception 'FEHLGESCHLAGEN: Interaktionen nicht mitgeloescht';
-  end if;
-  if (select count(*) from public.lead_scores) <> 0 then
-    raise exception 'FEHLGESCHLAGEN: Scores nicht mitgeloescht';
   end if;
 end $$;
 \echo '    OK: Lead und alle abgeleiteten Daten entfernt'

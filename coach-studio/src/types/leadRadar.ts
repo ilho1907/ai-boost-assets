@@ -1,4 +1,4 @@
-import type { InteraktionsTyp, Stufe, Trend } from '../lib/scoring';
+import type { InteraktionsTyp } from '../lib/scoring';
 
 export type LeadQuelle = 'erstgespraech' | 'dm' | 'empfehlung' | 'sonstige';
 export type LeadStatus = 'neu' | 'kontaktiert' | 'erstgespraech' | 'warm' | 'client' | 'verloren';
@@ -18,6 +18,11 @@ export interface Lead {
   /** is_user_follow_business; null = unbekannt. Nur mit Einwilligung befüllt. */
   folgt_coach: boolean | null;
   folgt_coach_at: string | null;
+  /**
+   * Juengste Interaktion in beliebiger Richtung, per Trigger gepflegt.
+   * Grundlage der Betreuungsansicht für Klientinnen.
+   */
+  letzte_beruehrung_at: string | null;
   notiz: string | null;
   created_at: string;
   updated_at: string;
@@ -36,16 +41,4 @@ export interface LeadInteractionRow {
   quelle: 'instagram' | 'manuell';
   raw_ref: string | null;
   created_at: string;
-}
-
-/** Spiegelt die Tabelle public.lead_scores. */
-export interface LeadScoreRow {
-  id: string;
-  coach_id: string;
-  lead_id: string;
-  score: number;
-  stufe: Stufe;
-  trend: Trend;
-  letzte_interaktion_at: string | null;
-  berechnet_at: string;
 }
