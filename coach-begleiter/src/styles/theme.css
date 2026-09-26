@@ -1,0 +1,260 @@
+/* Coach-Begleiter — eigenes, ruhigeres Theme: Sage/Rose statt Plum, weil hier
+   kein "Wer ist warm"-Triage-Ton passt, sondern "was steht für dich an".
+   Bewusst KEIN Wiederverwenden von Coach-Studios Plum-Marke — die beiden
+   Apps sind laut Entscheidung getrennte Produkte, nicht dasselbe Werkzeug
+   noch einmal eingefärbt. */
+
+:root {
+  --cb-sage: #6f8f76;
+  --cb-sage-deep: #3f5744;
+  --cb-rose: #c98a94;
+  --cb-rose-soft: #f1dde1;
+  --cb-sage-soft: #e4ede5;
+  --cb-ink: #22261f;
+  --cb-paper: #faf9f4;
+  --cb-line: #e2e2d8;
+
+  --cb-prio1: #a5514f;
+  --cb-prio1-bg: #f4e1df;
+  --cb-prio2: #a5744f;
+  --cb-prio2-bg: #f1e6d8;
+  --cb-prio3: #4f6459;
+  --cb-prio3-bg: var(--cb-sage-soft);
+
+  --cb-font-display: 'Fraunces', 'Georgia', serif;
+  --cb-font-text: 'Inter', system-ui, sans-serif;
+
+  --cb-radius: 14px;
+  --cb-shadow: 0 4px 20px rgba(34, 38, 31, 0.08);
+}
+
+.cb-root {
+  font-family: var(--cb-font-text);
+  color: var(--cb-ink);
+  background: var(--cb-paper);
+}
+
+.cb-heading {
+  font-family: var(--cb-font-display);
+  font-weight: 500;
+  color: var(--cb-sage-deep);
+}
+
+.cb-zentriert {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+
+.cb-panel {
+  background: #fff;
+  border: 1px solid var(--cb-line);
+  border-radius: var(--cb-radius);
+  box-shadow: var(--cb-shadow);
+  padding: 2rem;
+  max-width: 420px;
+  width: 100%;
+}
+
+.cb-panel__marke {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--cb-rose);
+  margin: 0 0 0.5rem;
+}
+
+.cb-panel__titel {
+  font-family: var(--cb-font-display);
+  font-weight: 500;
+  font-size: 1.4rem;
+  margin: 0 0 0.5rem;
+  color: var(--cb-sage-deep);
+}
+
+.cb-panel__text {
+  font-size: 0.88rem;
+  color: #55554a;
+  line-height: 1.5;
+  margin: 0 0 1.3rem;
+}
+
+.cb-fehler {
+  font-size: 0.82rem;
+  color: #8a4a52;
+  background: var(--cb-rose-soft);
+  border-radius: 8px;
+  padding: 0.55rem 0.7rem;
+  margin: 0 0 1rem;
+}
+
+.cb-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 1.1rem;
+}
+
+.cb-field label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--cb-sage-deep);
+}
+
+.cb-field input {
+  border: 1px solid var(--cb-line);
+  border-radius: 8px;
+  padding: 0.55rem 0.7rem;
+  font-size: 0.9rem;
+  font-family: var(--cb-font-text);
+}
+
+.cb-btn {
+  font-family: var(--cb-font-text);
+  font-weight: 600;
+  font-size: 0.85rem;
+  border: none;
+  border-radius: 999px;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+}
+
+.cb-btn--primary {
+  background: var(--cb-sage-deep);
+  color: #fff;
+}
+
+.cb-btn--ghost {
+  background: transparent;
+  color: var(--cb-sage-deep);
+  border: 1px solid var(--cb-line);
+}
+
+/* Heute-Ansicht */
+
+.cb-heute {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 2.5rem 1.5rem 4rem;
+}
+
+.cb-heute__kopf {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1.8rem;
+}
+
+.cb-heute__titel {
+  font-size: 1.6rem;
+  margin: 0 0 0.3rem;
+}
+
+.cb-heute__untertitel {
+  font-size: 0.9rem;
+  color: #6b6b5f;
+  margin: 0;
+}
+
+.cb-liste {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.cb-eintrag {
+  display: flex;
+  gap: 0.8rem;
+  align-items: flex-start;
+  background: #fff;
+  border: 1px solid var(--cb-line);
+  border-radius: var(--cb-radius);
+  padding: 1rem 1.1rem;
+}
+
+.cb-eintrag__marke {
+  width: 4px;
+  align-self: stretch;
+  border-radius: 999px;
+  flex: none;
+}
+
+.cb-eintrag--1 .cb-eintrag__marke {
+  background: var(--cb-prio1);
+}
+.cb-eintrag--2 .cb-eintrag__marke {
+  background: var(--cb-prio2);
+}
+.cb-eintrag--3 .cb-eintrag__marke {
+  background: var(--cb-prio3);
+}
+
+.cb-eintrag__titel {
+  font-weight: 600;
+  font-size: 0.95rem;
+  margin: 0 0 0.15rem;
+}
+
+.cb-eintrag__hinweis {
+  font-size: 0.82rem;
+  color: #6b6b5f;
+  margin: 0;
+}
+
+.cb-eintrag__typ {
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #9a9a8c;
+}
+
+.cb-leer {
+  text-align: center;
+  padding: 3rem 1.5rem;
+  color: #6b6b5f;
+  font-size: 0.9rem;
+}
+
+/* Content-Themenvorschlag */
+
+.cb-content-vorschlag {
+  margin-bottom: 2rem;
+}
+
+.cb-content-vorschlag__titel {
+  font-size: 1.15rem;
+  margin: 0 0 0.7rem;
+}
+
+.cb-content-vorschlag__karte {
+  background: var(--cb-sage-soft);
+  border-radius: var(--cb-radius);
+  padding: 1.1rem 1.2rem;
+}
+
+.cb-content-vorschlag__thema {
+  font-family: var(--cb-font-display);
+  font-weight: 500;
+  font-size: 1.1rem;
+  margin: 0 0 0.4rem;
+  color: var(--cb-sage-deep);
+}
+
+.cb-content-vorschlag__begruendung {
+  font-size: 0.85rem;
+  color: #4b5a4f;
+  margin: 0;
+}
+
+.cb-content-vorschlag__leer {
+  background: #fff;
+  border: 1px solid var(--cb-line);
+  border-radius: var(--cb-radius);
+  padding: 1.1rem 1.2rem;
+}
+
