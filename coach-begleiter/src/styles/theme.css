@@ -219,3 +219,42 @@
   color: #6b6b5f;
   font-size: 0.9rem;
 }
+
+/* Content-Themenvorschlag */
+
+.cb-content-vorschlag {
+  margin-bottom: 2rem;
+}
+
+.cb-content-vorschlag__titel {
+  font-size: 1.15rem;
+  margin: 0 0 0.7rem;
+}
+
+.cb-content-vorschlag__karte {
+  background: var(--cb-sage-soft);
+  border-radius: var(--cb-radius);
+  padding: 1.1rem 1.2rem;
+}
+
+.cb-content-vorschlag__thema {
+  font-family: var(--cb-font-display);
+  font-weight: 500;
+  font-size: 1.1rem;
+  margin: 0 0 0.4rem;
+  color: var(--cb-sage-deep);
+}
+
+.cb-content-vorschlag__begruendung {
+  font-size: 0.85rem;
+  color: #4b5a4f;
+  margin: 0;
+}
+
+.cb-content-vorschlag__leer {
+  background: #fff;
+  border: 1px solid var(--cb-line);
+  border-radius: var(--cb-radius);
+  padding: 1.1rem 1.2rem;
+}
+

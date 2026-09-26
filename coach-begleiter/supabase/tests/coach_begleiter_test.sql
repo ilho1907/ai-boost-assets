@@ -21,7 +21,7 @@ insert into public.coach_profile (coach_id) values
 on conflict do nothing;
 
 grant select, insert, update, delete on
-  public.termine, public.coach_challenge_teilnahme, public.hausaufgaben
+  public.termine, public.coach_challenge_teilnahme, public.hausaufgaben, public.content_vorschlaege
   to coach_app;
 grant select on public.challenges to coach_app;
 
@@ -165,6 +165,46 @@ begin
   end;
 end $$;
 \echo '    OK: Coach-Begleiter respektiert dieselbe Zulassungsschranke wie coach-studio'
+
+\echo '--- 9. Content-Vorschlag: Coachin kann fuer sich selbst schreiben ---'
+select set_config('request.jwt.claim.sub', '11111111-1111-1111-1111-111111111111', false);
+
+insert into public.content_vorschlaege (coach_id, woche_start, thema, begruendung) values
+  ('11111111-1111-1111-1111-111111111111', '2026-09-28', 'Testthema', 'Testbegruendung');
+
+do $$
+begin
+  if (select count(*) from public.content_vorschlaege) <> 1 then
+    raise exception 'FEHLGESCHLAGEN: Coachin A sieht ihren eigenen Vorschlag nicht';
+  end if;
+end $$;
+\echo '    OK: Vorschlag angelegt und sichtbar'
+
+\echo '--- 10. RLS: Coachin B sieht den Vorschlag von A nicht ---'
+select set_config('request.jwt.claim.sub', '22222222-2222-2222-2222-222222222222', false);
+
+do $$
+begin
+  if (select count(*) from public.content_vorschlaege) <> 0 then
+    raise exception 'FEHLGESCHLAGEN: Cross-Tenant-Leak in content_vorschlaege!';
+  end if;
+end $$;
+\echo '    OK: keine fremden Vorschlaege sichtbar'
+
+\echo '--- 11. Unique-Constraint: kein zweiter Vorschlag fuer dieselbe Woche ---'
+select set_config('request.jwt.claim.sub', '11111111-1111-1111-1111-111111111111', false);
+
+do $$
+begin
+  begin
+    insert into public.content_vorschlaege (coach_id, woche_start, thema, begruendung) values
+      ('11111111-1111-1111-1111-111111111111', '2026-09-28', 'Zweites Thema', 'x');
+    raise exception 'FEHLGESCHLAGEN: zweiter Vorschlag fuer dieselbe Woche wurde zugelassen';
+  exception when unique_violation then
+    null; -- erwartet: das ist die Kostenbremse gegen doppelte Anthropic-Aufrufe
+  end;
+end $$;
+\echo '    OK: pro Coachin und Woche nur ein Vorschlag'
 
 reset role;
 \echo ''

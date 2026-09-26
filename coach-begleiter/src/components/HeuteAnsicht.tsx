@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabaseClient';
+import { ContentVorschlagKarte } from './ContentVorschlagKarte';
 import {
   ermittleErinnerungen,
   type ChallengeMitTeilnahme,
@@ -102,6 +103,8 @@ export function HeuteAnsicht({ session }: { session: Session }) {
           Abmelden
         </button>
       </header>
+
+      <ContentVorschlagKarte />
 
       {fehler && (
         <p className="cb-fehler" role="alert">
