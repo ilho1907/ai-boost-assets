@@ -1,0 +1,65 @@
+name: Coach-Begleiter
+
+# Läuft für Änderungen am Coach-Begleiter-Modul UND für Änderungen an
+# coach-studios Migrationen — Coach-Begleiter setzt coach_profile und
+# ist_zugelassene_coachin() von dort voraus und kann durch eine dortige
+# Änderung stillschweigend brechen.
+on:
+  push:
+    paths:
+      - 'coach-begleiter/**'
+      - 'coach-studio/supabase/migrations/**'
+      - '.github/workflows/coach-begleiter.yml'
+  pull_request:
+    paths:
+      - 'coach-begleiter/**'
+      - 'coach-studio/supabase/migrations/**'
+      - '.github/workflows/coach-begleiter.yml'
+
+defaults:
+  run:
+    working-directory: coach-begleiter
+
+jobs:
+  typecheck-und-tests:
+    name: Typecheck, Tests, Build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: coach-begleiter/package-lock.json
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npx tsc -b
+
+      - name: Unit-Tests
+        run: npm test
+
+      - name: Produktionsbuild
+        run: npx vite build
+
+  schema:
+    name: Schema gegen PostgreSQL 16 (inkl. coach-studio-Abhängigkeit)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      # Kein Service-Container: supabase/tests/run.sh startet sich eine eigene
+      # Wegwerf-Instanz und spielt zusätzlich coach-studios Migrationen ein —
+      # derselbe Befehl gilt lokal und in der CI.
+      - name: PostgreSQL 16 bereitstellen
+        run: |
+          if [ ! -x /usr/lib/postgresql/16/bin/initdb ]; then
+            sudo apt-get update
+            sudo apt-get install -y postgresql-16
+          fi
+
+      # Die Suite läuft bewusst als Nicht-Superuser — Superuser umgehen RLS.
+      - name: Verifikationssuite
+        run: ./supabase/tests/run.sh
