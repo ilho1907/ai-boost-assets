@@ -61,7 +61,9 @@ export function LeadVerknuepfen({ lead, onSchliessen, onSpeichern }: LeadVerknue
             Lead-Radar nur, <em>wie</em> und <em>wann</em> {lead.name} mit deinem eigenen
             Instagram-Konto interagiert – z. B. eine DM-Antwort, eine Story-Reaktion oder ein
             Kommentar. Wir lesen niemals ihr Profil, ihre Kontakte oder ihre Beiträge. Du kannst
-            die Einwilligung jederzeit widerrufen; ihre Daten werden dann vollständig gelöscht.
+            die Einwilligung jederzeit widerrufen – ab dann werden keine neuen Interaktionen mehr
+            erfasst. Bereits gespeicherte Daten bleiben bestehen, bis du sie über „Archivieren" →
+            „Endgültig löschen" entfernst.
           </p>
         </div>
 

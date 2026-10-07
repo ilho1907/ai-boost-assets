@@ -338,10 +338,12 @@ ausgeschlossen.
   DB-Trigger ab. Bereits gespeicherte Interaktionen bleiben bestehen, bis
   explizit gelöscht wird — je nach Auslegung ggf. ergänzend automatisiert
   löschen.
-- **Löschung (Art. 17):** `select public.lead_delete_cascade('<lead_id>');`
-  löscht den Lead und kaskadiert auf `lead_interactions`.
-  Läuft mit den Rechten der aufrufenden Coachin (`security invoker`) und ist
-  zusätzlich durch RLS abgesichert. Im Test verifiziert.
+- **Löschung (Art. 17):** Button „Endgültig löschen" bei einem archivierten
+  Lead in der Oberfläche, oder direkt per RPC:
+  `select public.lead_delete_cascade('<lead_id>');` — löscht den Lead und
+  kaskadiert auf `lead_interactions`. Läuft mit den Rechten der aufrufenden
+  Coachin (`security invoker`) und ist zusätzlich durch RLS abgesichert. Im
+  Test verifiziert.
 - **Export (Art. 20):** View `public.lead_export_v` liefert alle Stamm- und
   Scoring-Daten eines Leads in einer Zeile (`security_invoker = true`, damit
   RLS der Basistabellen greift — bewusst **kein** `security_definer`, um den

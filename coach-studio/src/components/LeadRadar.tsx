@@ -297,6 +297,26 @@ export function LeadRadar({ session }: { session: Session }) {
     neuLaden();
   }
 
+  /**
+   * Löscht eine Interessentin unwiderruflich (DSGVO Art. 17) inkl. aller
+   * Interaktionen — über die RPC, nicht per Hand, damit die Kaskade
+   * garantiert vollständig ist. Nur für bereits archivierte Leads angeboten,
+   * damit kein versehentlicher Klick eine aktive Triage-Karte löscht.
+   */
+  async function endgueltigLoeschen(lead: Lead) {
+    if (!window.confirm(`${lead.name} unwiderruflich löschen? Das lässt sich nicht rückgängig machen.`)) {
+      return;
+    }
+    setSchreibFehler(null);
+    const { error } = await supabase.rpc('lead_delete_cascade', { p_lead_id: lead.id });
+
+    if (error) {
+      setSchreibFehler(`${lead.name} konnte nicht gelöscht werden: ${error.message}`);
+      return;
+    }
+    neuLaden();
+  }
+
   async function leadAnlegen(neu: {
     name: string;
     instagram_handle: string | null;
@@ -487,13 +507,22 @@ export function LeadRadar({ session }: { session: Session }) {
                           <span className="cs-archiv__handle"> @{lead.instagram_handle}</span>
                         )}
                       </span>
-                      <button
-                        type="button"
-                        className="cs-btn cs-btn--ghost"
-                        onClick={() => zurueckholen(lead)}
-                      >
-                        Zurückholen
-                      </button>
+                      <span className="cs-archiv__aktionen">
+                        <button
+                          type="button"
+                          className="cs-btn cs-btn--ghost"
+                          onClick={() => zurueckholen(lead)}
+                        >
+                          Zurückholen
+                        </button>
+                        <button
+                          type="button"
+                          className="cs-btn cs-btn--ghost cs-btn--gefahr"
+                          onClick={() => endgueltigLoeschen(lead)}
+                        >
+                          Endgültig löschen
+                        </button>
+                      </span>
                     </li>
                   ))}
                 </ul>

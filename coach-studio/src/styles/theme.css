@@ -334,6 +334,22 @@
   font-size: 0.88rem;
 }
 
+.cs-archiv__aktionen {
+  display: flex;
+  gap: 0.4rem;
+  flex: none;
+}
+
+.cs-btn--gefahr {
+  color: #a5514f;
+  border-color: #e4c9c8;
+}
+
+.cs-btn--gefahr:hover,
+.cs-btn--gefahr:focus-visible {
+  background: #f4e1df;
+}
+
 .cs-archiv__handle {
   color: #8a7d8c;
   font-size: 0.82rem;
